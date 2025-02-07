@@ -6,6 +6,16 @@ const path = require('path');
 const express = require('express');
 
 dotenv.config();
+const cors = require("cors");
+
+const corsOptions = {
+  origin: ["https://integrat360-frontend.vercel.app"],
+  methods: "GET,POST,PUT,DELETE",
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+
 
 // 📌 Configurar el puerto dinámico (Railway asigna uno diferente)
 const PORT = process.env.PORT || 5001;
