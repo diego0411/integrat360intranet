@@ -1,6 +1,6 @@
 const app = require('./app');
 const dotenv = require('dotenv');
-const http = require('http');
+const https = require('https');
 const { setupSocket } = require('./sockets/chat.socket');
 const path = require('path');
 const express = require('express');
