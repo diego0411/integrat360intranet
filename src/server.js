@@ -1,24 +1,46 @@
-const app = require('./app');
-const dotenv = require('dotenv');
-const http = require('http');  // Usar HTTP, Railway maneja HTTPS automáticamente
-const { setupSocket } = require('./sockets/chat.socket');
-const path = require('path');
-const express = require('express');
+const app = require("./app");
+const dotenv = require("dotenv");
+const http = require("http");
+const { setupSocket } = require("./sockets/chat.socket");
+const path = require("path");
+const express = require("express");
 
 dotenv.config();
 const cors = require("cors");
 
-// Configuración de CORS
+// 📌 Middleware para forzar HTTPS
+app.use((req, res, next) => {
+  if (req.headers["x-forwarded-proto"] !== "https") {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
+// 📌 Configuración CORS
 const corsOptions = {
-  origin: ["https://tu-frontend-en-vercel.vercel.app", "http://localhost:3000"], // Permite desarrollo y producción
-  methods: "GET,POST,PUT,DELETE",
+  origin: ["https://tu-frontend-en-vercel.vercel.app", "http://localhost:3000"], // Producción y desarrollo
+  methods: "GET, POST, PUT, DELETE, OPTIONS",
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // Permitir preflight requests
 
-// 📌 Configurar el puerto dinámico
+// 📌 Middleware para manejar CORS en todas las respuestas
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// 📌 Configurar el puerto dinámico en Railway
 const PORT = process.env.PORT || 5001;
 
 // 📌 Crear servidor HTTP (Railway ya maneja HTTPS)
