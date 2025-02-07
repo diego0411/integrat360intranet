@@ -21,7 +21,7 @@ app.use(cors(corsOptions));
 const PORT = process.env.PORT || 5001;
 
 // 📌 Crear servidor HTTP
-const server = http.createServer(app);
+const server = https.createServer(app);
 
 // 📌 Configurar socket.io para el chat
 setupSocket(server);
