@@ -9,20 +9,16 @@ dotenv.config();
 const cors = require("cors");
 
 const corsOptions = {
-  origin: ["https://integrat360-frontend.vercel.app"],
+  origin: ["https://tu-frontend-en-vercel.vercel.app"],
   methods: "GET,POST,PUT,DELETE",
   credentials: true,
 };
 
 app.use(cors(corsOptions));
 
-const PORT = process.env.PORT || 5001;
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
-});
 
 // 📌 Configurar el puerto dinámico (Railway asigna uno diferente)
-
+const PORT = process.env.PORT || 5001;
 
 // 📌 Crear servidor HTTP
 const server = http.createServer(app);
