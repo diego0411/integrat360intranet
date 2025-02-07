@@ -16,9 +16,13 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+});
 
 // 📌 Configurar el puerto dinámico (Railway asigna uno diferente)
-const PORT = process.env.PORT || 5001;
+
 
 // 📌 Crear servidor HTTP
 const server = http.createServer(app);
