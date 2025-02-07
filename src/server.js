@@ -8,6 +8,8 @@ const express = require('express');
 dotenv.config();
 
 const PORT = process.env.PORT || 5001;
+app.listen(PORT, () => console.log(`🚀 Servidor corriendo en el puerto ${PORT}`));
+
 const server = http.createServer(app); // 📌 Crear servidor HTTP
 
 setupSocket(server); // 📌 Configurar socket.io para el chat
