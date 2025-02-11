@@ -117,11 +117,11 @@ exports.getBirthdayUsers = async (req, res) => {
 exports.getUpcomingBirthdays = async (req, res) => {
     try {
         const [birthdays] = await db.execute(
-            "SELECT id, name, email, DATE_FORMAT(birthdate, '%Y-%m-%d') AS birthdate FROM users WHERE MONTH(birthdate) = MONTH(CURDATE()) AND DAY(birthdate) >= DAY(CURDATE()) ORDER BY DAY(birthdate) ASC"
+            "SELECT id, name, email, DATE_FORMAT(birthdate, '%Y-%m-%d') AS birthdate FROM users ORDER BY MONTH(birthdate), DAY(birthdate) ASC"
         );
 
         if (birthdays.length === 0) {
-            return res.status(404).json({ message: "No hay cumpleaños próximamente." });
+            return res.status(404).json({ message: "No hay cumpleaños registrados." });
         }
 
         res.json(birthdays);
