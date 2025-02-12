@@ -1,11 +1,15 @@
 const Event = require('../models/event.model');
 
+
+
 // 📌 Crear un evento
 exports.createEvent = async (req, res) => {
     console.log("📥 Datos recibidos:", req.body);
+    
 
     const { title, description, date, visibility } = req.body;
     const created_by = req.user?.id;
+    console.log( req.user?.id  );
 
     // ✅ Validación de datos
     if (!title || !date || !visibility) {
