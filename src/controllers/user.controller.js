@@ -94,18 +94,14 @@ exports.deleteUser = async (req, res) => {
 };
 
 // 📌 Obtener usuarios con cumpleaños hoy
+// 📌 Obtener usuarios con cumpleaños hoy
 exports.getBirthdayUsers = async (req, res) => {
     try {
-        const today = new Date().toISOString().slice(5, 10); // Formato MM-DD
-
+        const { month } = req.query; // Recibir el mes desde el frontend
         const [users] = await db.execute(
-            "SELECT id, name, email, birthdate FROM users WHERE DATE_FORMAT(birthdate, '%m-%d') = ?",
-            [today]
+            "SELECT id, name, email, birthdate FROM users WHERE MONTH(birthdate) = ?",
+            [month]
         );
-
-        if (users.length === 0) {
-            return res.json({ message: "No hay cumpleaños hoy." });
-        }
 
         res.json(users);
     } catch (error) {
@@ -113,6 +109,10 @@ exports.getBirthdayUsers = async (req, res) => {
         res.status(500).json({ error: "Error interno al obtener cumpleaños." });
     }
 };
+
+
+
+// 📌 Obtener cumpleaños próximos
 // 📌 Obtener cumpleaños próximos
 exports.getUpcomingBirthdays = async (req, res) => {
     try {
@@ -120,13 +120,11 @@ exports.getUpcomingBirthdays = async (req, res) => {
             "SELECT id, name, email, DATE_FORMAT(birthdate, '%Y-%m-%d') AS birthdate FROM users ORDER BY MONTH(birthdate), DAY(birthdate) ASC"
         );
 
-        if (birthdays.length === 0) {
-            return res.status(404).json({ message: "No hay cumpleaños registrados." });
-        }
-
-        res.json(birthdays);
+        // ✅ Enviar un array vacío en lugar de un error 404 si no hay cumpleaños
+        res.json(birthdays.length > 0 ? birthdays : []);
     } catch (error) {
         console.error("❌ Error al obtener cumpleaños:", error);
         res.status(500).json({ error: "Error interno al obtener cumpleaños." });
     }
 };
+

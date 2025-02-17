@@ -101,12 +101,39 @@ const deleteFolder = async (req, res) => {
         res.status(500).json({ error: "Error interno al eliminar la carpeta" });
     }
 };
+// 📌 Obtener contenido de una carpeta: subcarpetas y documentos
+const getFolderContents = async (req, res) => {
+    try {
+        const { folder_id } = req.params;
 
-// 📌 Exportar funciones correctamente
+        // 🔹 Obtener subcarpetas
+        const [subfolders] = await db.execute(
+            "SELECT id, name FROM folders WHERE parent_id = ?",
+            [folder_id]
+        );
+
+        // 🔹 Obtener documentos
+        const [documents] = await db.execute(
+            "SELECT id, name, url FROM documents WHERE folder_id = ?",
+            [folder_id]
+        );
+
+        res.json({ subfolders, documents });
+    } catch (error) {
+        console.error("❌ Error al obtener contenido de la carpeta:", error);
+        res.status(500).json({ error: "Error interno al obtener los contenidos." });
+    }
+};
+
+// 📌 Exportar la función
 module.exports = {
     createFolder,
     listFolders,
     shareFolder,
     shareFolderWithGroup,
-    deleteFolder
+    deleteFolder,
+    getFolderContents, // 👈 Agregar esta línea
 };
+
+
+

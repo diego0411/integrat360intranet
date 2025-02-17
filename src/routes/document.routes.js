@@ -1,14 +1,23 @@
 const express = require("express");
-const { uploadDocument, getFolderDocuments, deleteDocument } = require("../controllers/document.controller");
-const { verifyToken } = require("../middleware/auth.middleware");
 const multer = require("multer");
+const { 
+    uploadDocument, 
+    downloadDocument, 
+    shareDocument // ✅ Se agregó la nueva función
+} = require("../controllers/document.controller");
 
-const upload = multer({ dest: "uploads/" });
+const { verifyToken } = require("../middleware/auth.middleware");
 
 const router = express.Router();
+const upload = multer({ dest: "uploads/" });
 
-router.post("/", verifyToken, upload.single("file"), uploadDocument); // 🔥 Verifica que uploadDocument está definido
-router.get("/:folder_id", verifyToken, getFolderDocuments);
-router.delete("/:id", verifyToken, deleteDocument);
+// 📤 Ruta para subir archivos
+router.post("/", verifyToken, upload.single("file"), uploadDocument);
+
+// 📥 Ruta para descargar un documento
+router.get("/download/:document_id", verifyToken, downloadDocument);
+
+// 🔗 Ruta para compartir un documento con otro usuario o grupo
+router.post("/share", verifyToken, shareDocument);
 
 module.exports = router;

@@ -5,6 +5,7 @@ const { verifyToken } = require("../middleware/auth.middleware");
 const router = express.Router();
 
 // 📌 Ruta para obtener los cumpleaños próximos
-router.get("/", verifyToken, getUpcomingBirthdays);
+router.get("/", verifyToken, (req, res) => getBirthdayUsers(req, res));
+
 
 module.exports = router;

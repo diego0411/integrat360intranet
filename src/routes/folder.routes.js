@@ -4,7 +4,8 @@ const {
     listFolders, 
     shareFolder, 
     shareFolderWithGroup,  
-    deleteFolder 
+    deleteFolder ,
+    getFolderContents
 } = require("../controllers/folder.controller");
 const { verifyToken } = require("../middleware/auth.middleware");
 
@@ -15,5 +16,7 @@ router.get("/", verifyToken, listFolders);
 router.post("/share", verifyToken, shareFolder);
 router.post("/share/group", verifyToken, shareFolderWithGroup);  
 router.delete("/:id", verifyToken, deleteFolder);
+router.get("/:folder_id/contents", verifyToken, getFolderContents);
+
 
 module.exports = router;

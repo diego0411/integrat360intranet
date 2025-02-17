@@ -8,11 +8,22 @@ class Chat {
             [sender_id, receiver_id || null, group_id || null, message]
         );
     }
+    static async createPublicMessage(senderId, message) {
+        return db.execute(
+            "INSERT INTO messages (sender_id, message, created_at) VALUES (?, ?, NOW())",
+            [senderId, message]
+        );
+    }
+    
 
     // 📌 Obtener mensajes públicos
     static async getPublicMessages() {
         return db.execute(
-            'SELECT messages.id, users.name AS sender_name, messages.message, messages.created_at FROM messages JOIN users ON messages.sender_id = users.id WHERE messages.receiver_id IS NULL AND messages.group_id IS NULL ORDER BY messages.created_at DESC'
+            'SELECT messages.id, users.name AS sender_name, messages.message, messages.created_at ' +
+        'FROM messages ' +
+        'JOIN users ON messages.sender_id = users.id ' +
+        'WHERE messages.receiver_id IS NULL AND messages.group_id IS NULL ' +
+        'ORDER BY messages.created_at DESC'
         );
     }
 

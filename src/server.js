@@ -8,13 +8,6 @@ const express = require("express");
 dotenv.config();
 const cors = require("cors");
 
-// 📌 Middleware para forzar HTTPS
-app.use((req, res, next) => {
-  if (req.headers["x-forwarded-proto"] !== "https") {
-    return res.redirect(301, `https://${req.headers.host}${req.url}`);
-  }
-  next();
-});
 
 // 📌 Configuración CORS
 const corsOptions = {
