@@ -10,7 +10,6 @@ exports.sendMessage = async (req, res) => {
             return res.status(400).json({ error: "❌ El mensaje no puede estar vacío." });
         }
 
-        // 📌 Si no hay destinatario ni grupo, se considera mensaje público
         if (!receiver_id && !group_id) {
             console.log("📢 Enviando mensaje público:", message);
             await Chat.createPublicMessage(sender_id, message);
@@ -19,10 +18,10 @@ exports.sendMessage = async (req, res) => {
 
         if (receiver_id) {
             console.log(`📩 Enviando mensaje privado a ${receiver_id}:`, message);
-            await Chat.createPrivateMessage(sender_id, receiver_id, message);
+            await Chat.saveMessage(sender_id, receiver_id, null, message);
         } else if (group_id) {
             console.log(`📢 Enviando mensaje grupal a ${group_id}:`, message);
-            await Chat.createGroupMessage(sender_id, group_id, message);
+            await Chat.saveMessage(sender_id, null, group_id, message);
         }
 
         res.status(201).json({ message: "Mensaje enviado correctamente." });

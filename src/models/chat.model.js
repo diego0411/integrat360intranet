@@ -42,6 +42,24 @@ class Chat {
             [group_id]
         );
     }
+     // 📌 Guardar mensaje en la base de datos
+     static async saveMessage(sender_id, receiver_id, group_id, message) {
+        return db.execute(
+            'INSERT INTO messages (sender_id, receiver_id, group_id, message) VALUES (?, ?, ?, ?)',
+            [sender_id, receiver_id || null, group_id || null, message]
+        );
+    }
+
+    static async createPrivateMessage(sender_id, receiver_id, message) {
+        return db.execute(
+            'INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)',
+            [sender_id, receiver_id, message]
+        );
+    
 }
+}
+
+   
+
 
 module.exports = Chat;
