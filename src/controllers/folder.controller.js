@@ -1,14 +1,28 @@
 const db = require("../config/db");
 
-// 📌 Crear una nueva carpeta
+// 📌 Crear una nueva carpeta (permite subcarpetas y área)
 const createFolder = async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, parent_id, area } = req.body;
         const userId = req.user.id;
 
-        if (!name) return res.status(400).json({ error: "⚠️ El nombre de la carpeta es obligatorio" });
+        if (!name) {
+            return res.status(400).json({ error: "⚠️ El nombre de la carpeta es obligatorio" });
+        }
 
-        const [result] = await db.execute("INSERT INTO folders (name, owner_id) VALUES (?, ?)", [name, userId]);
+        // 📌 Verificar si `parent_id` es válido (si se proporciona)
+        if (parent_id) {
+            const [parentFolder] = await db.execute("SELECT id FROM folders WHERE id = ?", [parent_id]);
+            if (parentFolder.length === 0) {
+                return res.status(400).json({ error: "⛔ La carpeta padre no existe" });
+            }
+        }
+
+        // 📌 Insertar carpeta con `parent_id` y `area`
+        const [result] = await db.execute(
+            "INSERT INTO folders (name, owner_id, parent_id, area) VALUES (?, ?, ?, ?)",
+            [name, userId, parent_id || null, area || null]
+        );
 
         res.status(201).json({ message: "✅ Carpeta creada correctamente", folderId: result.insertId });
     } catch (error) {
@@ -17,28 +31,27 @@ const createFolder = async (req, res) => {
     }
 };
 
-// 📌 Obtener todas las carpetas del usuario (propias, compartidas con usuarios y grupos)
+// 📌 Obtener todas las carpetas principales del usuario (propias y compartidas)
 const listFolders = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const [ownFolders] = await db.execute("SELECT id, name FROM folders WHERE owner_id = ?", [userId]);
+        // 📌 Obtener solo carpetas principales del usuario
+        const [ownFolders] = await db.execute(
+            "SELECT id, name, area FROM folders WHERE owner_id = ? AND parent_id IS NULL",
+            [userId]
+        );
+
+        // 📌 Obtener carpetas principales compartidas con el usuario
         const [sharedFolders] = await db.execute(`
-            SELECT f.id, f.name FROM folders f
+            SELECT f.id, f.name, f.area FROM folders f
             JOIN folder_shares fs ON f.id = fs.folder_id
-            WHERE fs.user_id = ?
-        `, [userId]);
-        const [sharedGroupFolders] = await db.execute(`
-            SELECT f.id, f.name FROM folders f
-            JOIN folder_shares fs ON f.id = fs.folder_id
-            JOIN group_members gm ON fs.group_id = gm.group_id
-            WHERE gm.user_id = ?
+            WHERE fs.user_id = ? AND f.parent_id IS NULL
         `, [userId]);
 
         res.json({
             ownFolders: ownFolders || [],
             sharedFolders: sharedFolders || [],
-            sharedGroupFolders: sharedGroupFolders || []
         });
     } catch (error) {
         console.error("❌ Error al obtener carpetas:", error);
@@ -53,7 +66,9 @@ const shareFolder = async (req, res) => {
         const ownerId = req.user.id;
 
         const [folders] = await db.execute("SELECT * FROM folders WHERE id = ? AND owner_id = ?", [folderId, ownerId]);
-        if (folders.length === 0) return res.status(403).json({ error: "⛔ No tienes permiso para compartir esta carpeta" });
+        if (folders.length === 0) {
+            return res.status(403).json({ error: "⛔ No tienes permiso para compartir esta carpeta" });
+        }
 
         await db.execute("INSERT INTO folder_shares (folder_id, user_id) VALUES (?, ?)", [folderId, userId]);
 
@@ -71,7 +86,9 @@ const shareFolderWithGroup = async (req, res) => {
         const ownerId = req.user.id;
 
         const [folders] = await db.execute("SELECT * FROM folders WHERE id = ? AND owner_id = ?", [folderId, ownerId]);
-        if (folders.length === 0) return res.status(403).json({ error: "⛔ No tienes permiso para compartir esta carpeta" });
+        if (folders.length === 0) {
+            return res.status(403).json({ error: "⛔ No tienes permiso para compartir esta carpeta" });
+        }
 
         await db.execute("INSERT INTO folder_shares (folder_id, group_id) VALUES (?, ?)", [folderId, groupId]);
 
@@ -82,15 +99,23 @@ const shareFolderWithGroup = async (req, res) => {
     }
 };
 
-// 📌 Eliminar una carpeta y sus documentos
+// 📌 Eliminar una carpeta y sus documentos (incluyendo subcarpetas)
 const deleteFolder = async (req, res) => {
     try {
         const folderId = req.params.id;
         const userId = req.user.id;
 
+        // 📌 Verificar si la carpeta existe y pertenece al usuario
         const [folders] = await db.execute("SELECT * FROM folders WHERE id = ? AND owner_id = ?", [folderId, userId]);
-        if (folders.length === 0) return res.status(404).json({ error: "⛔ La carpeta no existe o no tienes permiso para eliminarla" });
+        if (folders.length === 0) {
+            return res.status(404).json({ error: "⛔ La carpeta no existe o no tienes permiso para eliminarla" });
+        }
 
+        // 📌 Eliminar subcarpetas y documentos antes de eliminar la carpeta principal
+        await db.execute("DELETE FROM documents WHERE folder_id IN (SELECT id FROM folders WHERE parent_id = ?)", [folderId]);
+        await db.execute("DELETE FROM folders WHERE parent_id = ?", [folderId]);
+
+        // 📌 Eliminar la carpeta
         await db.execute("DELETE FROM folder_shares WHERE folder_id = ?", [folderId]);
         await db.execute("DELETE FROM documents WHERE folder_id = ?", [folderId]);
         await db.execute("DELETE FROM folders WHERE id = ?", [folderId]);
@@ -101,21 +126,25 @@ const deleteFolder = async (req, res) => {
         res.status(500).json({ error: "Error interno al eliminar la carpeta" });
     }
 };
-// 📌 Obtener contenido de una carpeta: subcarpetas y documentos
+
+// 📌 Obtener contenido de una carpeta (subcarpetas y documentos)
 const getFolderContents = async (req, res) => {
     try {
-        const { folder_id } = req.params;
+        const folderId = parseInt(req.params.folder_id, 10);
+        if (isNaN(folderId)) {
+            return res.status(400).json({ error: "⛔ ID de carpeta inválido" });
+        }
 
-        // 🔹 Obtener subcarpetas
+        // 📌 Obtener subcarpetas
         const [subfolders] = await db.execute(
             "SELECT id, name FROM folders WHERE parent_id = ?",
-            [folder_id]
+            [folderId]
         );
 
-        // 🔹 Obtener documentos
+        // 📌 Obtener documentos
         const [documents] = await db.execute(
             "SELECT id, name, url FROM documents WHERE folder_id = ?",
-            [folder_id]
+            [folderId]
         );
 
         res.json({ subfolders, documents });
@@ -125,15 +154,27 @@ const getFolderContents = async (req, res) => {
     }
 };
 
-// 📌 Exportar la función
+// 📌 Obtener carpetas del área "proyectos"
+const listProjectFolders = async (req, res) => {
+    try {
+        const [projectFolders] = await db.execute(
+            "SELECT id, name FROM folders WHERE area = 'proyectos'"
+        );
+
+        res.json({ projectFolders: projectFolders || [] });
+    } catch (error) {
+        console.error("❌ Error al obtener carpetas de proyectos:", error);
+        res.status(500).json({ error: "Error interno al obtener carpetas de proyectos." });
+    }
+};
+
+// 📌 Exportar funciones
 module.exports = {
     createFolder,
     listFolders,
+    listProjectFolders,  // 📌 Ahora esta función es única
     shareFolder,
     shareFolderWithGroup,
     deleteFolder,
-    getFolderContents, // 👈 Agregar esta línea
+    getFolderContents
 };
-
-
-
