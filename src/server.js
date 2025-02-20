@@ -12,6 +12,7 @@ const cors = require("cors");
 // 📌 Configuración CORS con detección automática de origen
 const allowedOrigins = [
   "https://tu-frontend-en-vercel.vercel.app",
+  "https://main.dnwvajgvo8wr6.amplifyapp.com",
   "http://localhost:3000",
 ];
 
