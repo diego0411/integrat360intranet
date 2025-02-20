@@ -20,6 +20,7 @@ const app = express();
 // 📌 Configuración CORS para permitir solo dominios específicos
 const allowedOrigins = [
   "https://tu-frontend-en-vercel.vercel.app",
+  "https://main.dnwvajgvo8wr6.amplifyapp.com",
   "http://localhost:3000",
 ];
 
