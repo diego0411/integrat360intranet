@@ -6,7 +6,7 @@ const createFolder = async (req, res) => {
         const { name, parent_id, area } = req.body;
         const userId = req.user.id;
 
-        if (!name) {
+        if (!name || name.trim() === "") {
             return res.status(400).json({ error: "⚠️ El nombre de la carpeta es obligatorio" });
         }
 
@@ -21,7 +21,7 @@ const createFolder = async (req, res) => {
         // 📌 Insertar carpeta con `parent_id` y `area`
         const [result] = await db.execute(
             "INSERT INTO folders (name, owner_id, parent_id, area) VALUES (?, ?, ?, ?)",
-            [name, userId, parent_id || null, area || null]
+            [name.trim(), userId, parent_id || null, area || null]
         );
 
         res.status(201).json({ message: "✅ Carpeta creada correctamente", folderId: result.insertId });
@@ -65,7 +65,7 @@ const shareFolder = async (req, res) => {
         const { folderId, userId } = req.body;
         const ownerId = req.user.id;
 
-        const [folders] = await db.execute("SELECT * FROM folders WHERE id = ? AND owner_id = ?", [folderId, ownerId]);
+        const [folders] = await db.execute("SELECT id FROM folders WHERE id = ? AND owner_id = ?", [folderId, ownerId]);
         if (folders.length === 0) {
             return res.status(403).json({ error: "⛔ No tienes permiso para compartir esta carpeta" });
         }
@@ -85,7 +85,7 @@ const shareFolderWithGroup = async (req, res) => {
         const { folderId, groupId } = req.body;
         const ownerId = req.user.id;
 
-        const [folders] = await db.execute("SELECT * FROM folders WHERE id = ? AND owner_id = ?", [folderId, ownerId]);
+        const [folders] = await db.execute("SELECT id FROM folders WHERE id = ? AND owner_id = ?", [folderId, ownerId]);
         if (folders.length === 0) {
             return res.status(403).json({ error: "⛔ No tienes permiso para compartir esta carpeta" });
         }
@@ -106,7 +106,7 @@ const deleteFolder = async (req, res) => {
         const userId = req.user.id;
 
         // 📌 Verificar si la carpeta existe y pertenece al usuario
-        const [folders] = await db.execute("SELECT * FROM folders WHERE id = ? AND owner_id = ?", [folderId, userId]);
+        const [folders] = await db.execute("SELECT id FROM folders WHERE id = ? AND owner_id = ?", [folderId, userId]);
         if (folders.length === 0) {
             return res.status(404).json({ error: "⛔ La carpeta no existe o no tienes permiso para eliminarla" });
         }
@@ -158,7 +158,7 @@ const getFolderContents = async (req, res) => {
 const listProjectFolders = async (req, res) => {
     try {
         const [projectFolders] = await db.execute(
-            "SELECT id, name FROM folders WHERE area = 'proyectos'"
+            "SELECT id, name FROM folders WHERE area = 'proyectos' AND parent_id IS NULL"
         );
 
         res.json({ projectFolders: projectFolders || [] });
@@ -172,7 +172,7 @@ const listProjectFolders = async (req, res) => {
 module.exports = {
     createFolder,
     listFolders,
-    listProjectFolders,  // 📌 Ahora esta función es única
+    listProjectFolders,
     shareFolder,
     shareFolderWithGroup,
     deleteFolder,

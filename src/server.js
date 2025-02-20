@@ -4,14 +4,25 @@ const http = require("http");
 const { setupSocket } = require("./sockets/chat.socket");
 const path = require("path");
 const express = require("express");
+const fs = require("fs");
 
 dotenv.config();
 const cors = require("cors");
 
+// 📌 Configuración CORS con detección automática de origen
+const allowedOrigins = [
+  "https://tu-frontend-en-vercel.vercel.app",
+  "http://localhost:3000",
+];
 
-// 📌 Configuración CORS
 const corsOptions = {
-  origin: ["https://tu-frontend-en-vercel.vercel.app", "http://localhost:3000"], // Producción y desarrollo
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("⛔ CORS bloqueado para este origen"));
+    }
+  },
   methods: "GET, POST, PUT, DELETE, OPTIONS",
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -36,16 +47,22 @@ app.use((req, res, next) => {
 // 📌 Configurar el puerto dinámico en Railway
 const PORT = process.env.PORT || 5001;
 
-// 📌 Crear servidor HTTP (Railway ya maneja HTTPS)
+// 📌 Crear servidor HTTP (Railway maneja HTTPS automáticamente)
 const server = http.createServer(app);
 
 // 📌 Configurar socket.io para el chat
 setupSocket(server);
 
-// 📌 Servir archivos estáticos
+// 📂 Configuración de archivos estáticos (Asegura que `uploads/` exista)
 const uploadsPath = path.join(__dirname, "../uploads");
+
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+  console.log("📂 Directorio 'uploads/' creado.");
+}
+
 app.use("/api/uploads", express.static(uploadsPath));
-console.log(`📂 Servidor de archivos estáticos en: ${uploadsPath}`);
+console.log(`📂 Servidor de archivos estáticos activo en: ${uploadsPath}`);
 
 // 📌 Manejo de errores al iniciar el servidor
 server.listen(PORT, () => {
