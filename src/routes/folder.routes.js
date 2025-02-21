@@ -6,7 +6,8 @@ const {
     shareFolder, 
     shareFolderWithGroup,  
     deleteFolder,
-    getFolderContents
+    getFolderContents,
+    moveFolder
 } = require("../controllers/folder.controller"); // ✅ CORRECTO
 
 
@@ -21,6 +22,8 @@ router.post("/share", verifyToken, shareFolder);
 router.post("/share/group", verifyToken, shareFolderWithGroup);
 router.delete("/:id", verifyToken, deleteFolder);
 router.get("/:folder_id/contents", verifyToken, getFolderContents);
+router.put("/move", verifyToken, moveFolder);
+
 
 // 📌 Rutas públicas (sin autenticación)
 router.get("/projects", listProjectFolders); // Carpetas de proyectos públicas

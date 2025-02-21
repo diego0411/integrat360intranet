@@ -167,6 +167,38 @@ const listProjectFolders = async (req, res) => {
         res.status(500).json({ error: "Error interno al obtener carpetas de proyectos." });
     }
 };
+// 📌 Mover una subcarpeta a otra carpeta principal
+const moveFolder = async (req, res) => {
+    try {
+        const { folderId, newParentId } = req.body;
+        const userId = req.user.id;
+
+        if (!folderId || !newParentId) {
+            return res.status(400).json({ error: "⚠️ Se requieren folderId y newParentId" });
+        }
+
+        // 📌 Verificar si la carpeta a mover existe y pertenece al usuario
+        const [folder] = await db.execute("SELECT id FROM folders WHERE id = ? AND owner_id = ?", [folderId, userId]);
+        if (folder.length === 0) {
+            return res.status(403).json({ error: "⛔ No tienes permiso para mover esta carpeta" });
+        }
+
+        // 📌 Verificar si la nueva carpeta padre existe
+        const [newParent] = await db.execute("SELECT id FROM folders WHERE id = ?", [newParentId]);
+        if (newParent.length === 0) {
+            return res.status(400).json({ error: "⛔ La carpeta destino no existe" });
+        }
+
+        // 📌 Actualizar `parent_id` de la subcarpeta
+        await db.execute("UPDATE folders SET parent_id = ? WHERE id = ?", [newParentId, folderId]);
+
+        res.json({ message: "✅ Carpeta movida correctamente" });
+    } catch (error) {
+        console.error("❌ Error al mover la carpeta:", error);
+        res.status(500).json({ error: "Error interno al mover la carpeta" });
+    }
+};
+
 
 // 📌 Exportar funciones
 module.exports = {
@@ -176,5 +208,6 @@ module.exports = {
     shareFolder,
     shareFolderWithGroup,
     deleteFolder,
-    getFolderContents
+    getFolderContents,
+    moveFolder
 };
