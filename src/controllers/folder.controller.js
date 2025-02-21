@@ -170,27 +170,33 @@ const listProjectFolders = async (req, res) => {
 // 📌 Mover una subcarpeta a otra carpeta principal
 const moveFolder = async (req, res) => {
     try {
-        const { folderId, newParentId } = req.body;
+        // 📌 Corregir nombres de variables recibidas
+        const { folder_id, new_parent_id } = req.body;
         const userId = req.user.id;
 
-        if (!folderId || !newParentId) {
-            return res.status(400).json({ error: "⚠️ Se requieren folderId y newParentId" });
+        if (!folder_id || !new_parent_id) {
+            return res.status(400).json({ error: "⚠️ Se requieren folder_id y new_parent_id" });
         }
 
         // 📌 Verificar si la carpeta a mover existe y pertenece al usuario
-        const [folder] = await db.execute("SELECT id FROM folders WHERE id = ? AND owner_id = ?", [folderId, userId]);
-        if (folder.length === 0) {
+        const [folder] = await db.execute("SELECT id FROM folders WHERE id = ? AND owner_id = ?", [folder_id, userId]);
+        if (!folder.length) {
             return res.status(403).json({ error: "⛔ No tienes permiso para mover esta carpeta" });
         }
 
         // 📌 Verificar si la nueva carpeta padre existe
-        const [newParent] = await db.execute("SELECT id FROM folders WHERE id = ?", [newParentId]);
-        if (newParent.length === 0) {
+        const [newParent] = await db.execute("SELECT id FROM folders WHERE id = ?", [new_parent_id]);
+        if (!newParent.length) {
             return res.status(400).json({ error: "⛔ La carpeta destino no existe" });
         }
 
+        // 📌 Evitar mover una carpeta dentro de sí misma
+        if (parseInt(folder_id) === parseInt(new_parent_id)) {
+            return res.status(400).json({ error: "⛔ No puedes mover una carpeta dentro de sí misma" });
+        }
+
         // 📌 Actualizar `parent_id` de la subcarpeta
-        await db.execute("UPDATE folders SET parent_id = ? WHERE id = ?", [newParentId, folderId]);
+        await db.execute("UPDATE folders SET parent_id = ? WHERE id = ?", [new_parent_id, folder_id]);
 
         res.json({ message: "✅ Carpeta movida correctamente" });
     } catch (error) {
@@ -198,6 +204,8 @@ const moveFolder = async (req, res) => {
         res.status(500).json({ error: "Error interno al mover la carpeta" });
     }
 };
+
+
 
 
 // 📌 Exportar funciones
