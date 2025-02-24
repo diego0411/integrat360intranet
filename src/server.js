@@ -1,7 +1,8 @@
 const app = require("./app");
 const dotenv = require("dotenv");
 const http = require("http");
-const { setupSocket } = require("./sockets/chat.socket");
+const { setupSocket } = require("./sockets/chat.socket"); // ✅ Mantener el chat
+const { setupSockets } = require("./sockets/socket.js"); // ✅ Agregar notificaciones
 const path = require("path");
 const express = require("express");
 const fs = require("fs");
@@ -48,11 +49,17 @@ app.use((req, res, next) => {
 // 📌 Configurar el puerto dinámico en Railway
 const PORT = process.env.PORT || 5001;
 
-// 📌 Crear servidor HTTP (Railway maneja HTTPS automáticamente)
+// 📌 Crear servidor HTTP
 const server = http.createServer(app);
 
-// 📌 Configurar socket.io para el chat
-setupSocket(server);
+// 📌 Inicializar los sockets (Chat y Notificaciones)
+try {
+  setupSocket(server);  // 🔵 Chat
+  setupSockets(server); // 🔔 Notificaciones
+  console.log("✅ Sockets inicializados correctamente.");
+} catch (error) {
+  console.error("❌ Error al inicializar los sockets:", error);
+}
 
 // 📂 Configuración de archivos estáticos (Asegura que `uploads/` exista)
 const uploadsPath = path.join(__dirname, "../uploads");

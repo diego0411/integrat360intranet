@@ -17,6 +17,16 @@ class Notification {
     static async markAsRead(id) {
         return db.execute('UPDATE notifications SET is_read = TRUE WHERE id = ?', [id]);
     }
+    
+    static async createPublicNotification(message, type) {
+        const [result] = await db.execute(
+            'INSERT INTO notifications (user_id, message, type) SELECT id, ?, ? FROM users',
+            [message, type]
+        );
+    
+        return result;
+    }
+    
 }
 
 module.exports = Notification;

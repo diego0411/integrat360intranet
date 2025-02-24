@@ -158,15 +158,17 @@ const getFolderContents = async (req, res) => {
 const listProjectFolders = async (req, res) => {
     try {
         const [projectFolders] = await db.execute(
-            "SELECT id, name FROM folders WHERE area = 'proyectos' AND parent_id IS NULL"
+            "SELECT id, name FROM folders WHERE area = ? AND parent_id IS NULL",
+            ['proyectos']
         );
 
-        res.json({ projectFolders: projectFolders || [] });
+        res.status(200).json({ projectFolders: projectFolders.length > 0 ? projectFolders : [] });
     } catch (error) {
         console.error("❌ Error al obtener carpetas de proyectos:", error);
         res.status(500).json({ error: "Error interno al obtener carpetas de proyectos." });
     }
 };
+
 // 📌 Mover una subcarpeta a otra carpeta principal
 const moveFolder = async (req, res) => {
     try {
@@ -204,6 +206,72 @@ const moveFolder = async (req, res) => {
         res.status(500).json({ error: "Error interno al mover la carpeta" });
     }
 };
+const createProject = async (req, res) => {
+    try {
+        const { name } = req.body;
+        const userId = req.user.id; // ID del usuario autenticado
+
+        if (!name) {
+            return res.status(400).json({ error: "⚠️ El nombre del proyecto es obligatorio." });
+        }
+
+        // 🔹 Crear la carpeta principal del proyecto con área "proyectos"
+        const [projectResult] = await db.execute(
+            "INSERT INTO folders (name, parent_id, owner_id, area) VALUES (?, NULL, ?, ?)",
+            [name, userId, "proyectos"]
+        );
+
+        const projectFolderId = projectResult.insertId; // ID de la carpeta principal
+
+        // 🔹 Definir las subcarpetas principales y sus respectivas subcarpetas
+        const subfolders = {
+            "Ingeniería": ["Sistemas de Gestión", "Memorias de Cálculo", "Hojas de Cálculo", "Planos"],
+            "Materiales": ["Lista de Materiales", "Registro Entrante de Materiales", "Cotización"],
+            "Instalación": ["Documentos Generales", "Procedimientos", "Registros", "Contratistas"],
+            "Operaciones": ["Certificaciones Pre-Com y Com"],
+            "Mantenimiento": [],
+            "Generación Distribuida": []
+        };
+
+        // 🔹 Insertar las subcarpetas principales
+        const subfolderResults = await Promise.all(
+            Object.keys(subfolders).map(async (subfolder) => {
+                const [subfolderResult] = await db.execute(
+                    "INSERT INTO folders (name, parent_id, owner_id, area) VALUES (?, ?, ?, ?)",
+                    [subfolder, projectFolderId, userId, "proyectos"]
+                );
+                return { id: subfolderResult.insertId, name: subfolder };
+            })
+        );
+
+        // 🔹 Insertar sub-subcarpetas dentro de cada subcarpeta
+        await Promise.all(
+            subfolderResults.map(async (subfolderData) => {
+                const { id: subfolderId, name: subfolderName } = subfolderData;
+                const subSubfolders = subfolders[subfolderName];
+
+                if (subSubfolders.length > 0) {
+                    await Promise.all(
+                        subSubfolders.map(subSubfolder =>
+                            db.execute(
+                                "INSERT INTO folders (name, parent_id, owner_id, area) VALUES (?, ?, ?, ?)",
+                                [subSubfolder, subfolderId, userId, "proyectos"]
+                            )
+                        )
+                    );
+                }
+            })
+        );
+
+        res.status(201).json({ message: "✅ Proyecto creado con su estructura completa.", projectFolderId });
+
+    } catch (error) {
+        console.error("❌ Error al crear proyecto:", error);
+        res.status(500).json({ error: "❌ Error interno del servidor." });
+    }
+};
+
+
 
 
 
@@ -217,5 +285,6 @@ module.exports = {
     shareFolderWithGroup,
     deleteFolder,
     getFolderContents,
-    moveFolder
+    moveFolder,
+    createProject
 };
