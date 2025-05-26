@@ -20,6 +20,8 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
 const allowedOrigins = [
   "https://integrat360-frontend.vercel.app",
   "https://tu-frontend-en-vercel.vercel.app",
+  "https://integrat360-frontend-diegos-projects-dd0d649f.vercel.app",
+  "https://integrat360-frontend-diegos-projects-dd0d649f.vercel.app",
   "https://main.dnwvajgvo8wr6.amplifyapp.com",
   "http://localhost:3000"
 ];
