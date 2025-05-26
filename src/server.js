@@ -1,8 +1,8 @@
 const app = require("./app");
 const dotenv = require("dotenv");
 const http = require("http");
-const { setupSocket } = require("./sockets/chat.socket");
-const { setupSockets } = require("./sockets/socket.js");
+const { setupSocket } = require("./sockets/chat.socket");  // 🔵 Chat
+const { setupSockets } = require("./sockets/socket.js");   // 🔔 Notificaciones
 const path = require("path");
 const express = require("express");
 const fs = require("fs");
@@ -10,26 +10,24 @@ const cors = require("cors");
 
 dotenv.config();
 
-// ✅ Verificación de variables de entorno
+// ✅ Verificación de variables de entorno Supabase
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
   console.error("❌ Faltan variables de entorno SUPABASE_URL o SUPABASE_KEY");
   process.exit(1);
 }
 
-// 🌐 Orígenes permitidos
+// 🌐 Lista de orígenes permitidos
 const allowedOrigins = [
   "https://integrat360-frontend.vercel.app",
   "https://tu-frontend-en-vercel.vercel.app",
-  "https://integrat360-frontend-diegos-projects-dd0d649f.vercel.app",
-  "https://integrat360-frontend-diegos-projects-dd0d649f.vercel.app",
   "https://main.dnwvajgvo8wr6.amplifyapp.com",
-  "http://localhost:3000"
+  "http://localhost:3000",
 ];
 
-// ✅ Configuración CORS
+// ✅ Configuración robusta de CORS
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ""))) {
       callback(null, true);
     } else {
       console.warn(`⛔ CORS bloqueado para el origen: ${origin}`);
@@ -41,13 +39,13 @@ const corsOptions = {
   credentials: true,
 };
 
-// 🛡️ Aplicar CORS antes de las rutas
+// ✅ Aplicar CORS correctamente
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // Preflight para todos los endpoints
+app.options("*", cors(corsOptions)); // Preflight
 
-// 🧱 Middleware global adicional para reforzar headers en respuestas
+// 🛡️ Middleware global para reforzar headers de CORS (por si acaso)
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
+  const origin = req.headers.origin?.replace(/\/$/, "");
   if (allowedOrigins.includes(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
   }
@@ -66,7 +64,7 @@ app.use((req, res, next) => {
 const PORT = process.env.PORT || 5001;
 const server = http.createServer(app);
 
-// 💬 WebSockets
+// 💬 WebSockets (chat + notificaciones)
 try {
   setupSocket(server);
   setupSockets(server);
@@ -75,7 +73,7 @@ try {
   console.error("❌ Error al inicializar los sockets:", error.message);
 }
 
-// 🗂 Archivos estáticos
+// 🗂 Servir archivos estáticos
 const uploadsPath = path.join(__dirname, "../uploads");
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
