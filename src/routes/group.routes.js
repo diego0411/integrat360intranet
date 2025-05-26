@@ -1,28 +1,28 @@
 const express = require("express");
 const { verifyToken } = require("../middleware/auth.middleware");
-const { 
-    createGroup, 
-    getGroups, 
-    getGroupMembers, 
-    addUserToGroup, 
-    deleteGroup  // ✅ Añadido correctamente
+const {
+    createGroup,
+    getGroups,
+    getGroupMembers,
+    addUserToGroup,
+    deleteGroup
 } = require("../controllers/group.controller");
 
 const router = express.Router();
 
-// 📌 Crear un grupo
+// ✅ Crear un grupo
 router.post("/", verifyToken, createGroup);
 
-// 📌 Obtener todos los grupos
+// ✅ Obtener todos los grupos del usuario
 router.get("/", verifyToken, getGroups);
 
-// 📌 Obtener miembros de un grupo
+// ✅ Obtener miembros de un grupo
 router.get("/:groupId/members", verifyToken, getGroupMembers);
 
-// 📌 Agregar un usuario a un grupo
+// ✅ Agregar un usuario a un grupo
 router.post("/:groupId/members", verifyToken, addUserToGroup);
 
-// 📌 Eliminar un grupo (solo el creador puede hacerlo)
-router.delete("/:groupId", verifyToken, deleteGroup);  
+// ✅ Eliminar un grupo (solo el creador)
+router.delete("/:groupId", verifyToken, deleteGroup);
 
 module.exports = router;

@@ -9,16 +9,16 @@ const {
 
 const router = express.Router();
 
-// 📌 Enviar mensaje
+// 📤 Enviar mensaje (público, privado o de grupo)
 router.post("/", verifyToken, sendMessage);
 
-// 📌 Obtener mensajes públicos
+// 📥 Obtener mensajes públicos
 router.get("/public", verifyToken, getPublicMessages);
 
-// 📌 Obtener mensajes privados entre usuarios
+// 📥 Obtener mensajes privados entre usuarios (basado en receiver_id)
 router.get("/private/:receiver_id", verifyToken, getPrivateMessages);
 
-// 📌 Obtener mensajes de grupo
+// 📥 Obtener mensajes de grupo
 router.get("/group/:group_id", verifyToken, getGroupMessages);
 
 module.exports = router;

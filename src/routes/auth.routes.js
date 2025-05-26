@@ -1,11 +1,15 @@
 const express = require("express");
 const { login, register, getMe } = require("../controllers/auth.controller");
-const { verifyToken } = require("../middleware/auth.middleware"); // 🔥 Importar el middleware de autenticación
+const { verifyToken } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
+// 📌 Registro e inicio de sesión
 router.post("/register", register);
 router.post("/login", login);
-router.get("/me", verifyToken, getMe); // 🔥 Ahora `verifyToken` está definido
+
+// 📌 Obtener el usuario autenticado
+router.get("/me", verifyToken, getMe);
+router.get("/user", verifyToken, getMe); // 🔁 Alias para compatibilidad con el frontend
 
 module.exports = router;

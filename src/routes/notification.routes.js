@@ -1,17 +1,21 @@
-const express = require('express');
+const express = require("express");
 const {
     getUserNotifications,
     markNotificationAsRead,
-    sendPublicNotification // ✅ Asegúrate de incluir esta función
-} = require('../controllers/notification.controller');
-const { verifyToken } = require('../middleware/auth.middleware');
+    sendPublicNotification
+} = require("../controllers/notification.controller");
+
+const { verifyToken } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
-router.get('/', verifyToken, getUserNotifications);
-router.put('/:id', verifyToken, markNotificationAsRead);
+// ✅ Obtener notificaciones del usuario autenticado
+router.get("/", verifyToken, getUserNotifications);
 
-// 📌 Ruta corregida para enviar notificaciones públicas
-router.post('/public', sendPublicNotification);
+// ✅ Marcar una notificación como leída
+router.put("/:id", verifyToken, markNotificationAsRead);
+
+// ✅ Enviar una notificación pública (requiere autenticación si deseas limitar a admins)
+router.post("/public", verifyToken, sendPublicNotification);
 
 module.exports = router;

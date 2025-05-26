@@ -1,32 +1,31 @@
 const express = require("express");
-const { 
-    createFolder, 
-    listFolders, 
-    listProjectFolders, 
-    shareFolder, 
-    shareFolderWithGroup,  
+const {
+    createFolder,
+    listFolders,
+    listProjectFolders,
+    shareFolder,
+    shareFolderWithGroup,
     deleteFolder,
     getFolderContents,
     moveFolder,
     createProject
-} = require("../controllers/folder.controller"); // ✅ CORRECTO
+} = require("../controllers/folder.controller");
 
 const { verifyToken } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
-// 📌 Rutas protegidas (requieren autenticación)
-router.post("/projects", verifyToken, createProject); // ✅ MOVIDO ARRIBA
-router.post("/", verifyToken, createFolder);
-router.get("/", verifyToken, listFolders);
-router.post("/share", verifyToken, shareFolder);
-router.post("/share/group", verifyToken, shareFolderWithGroup);
-router.delete("/:id", verifyToken, deleteFolder);
-router.get("/:folder_id/contents", verifyToken, getFolderContents);
-router.put("/move", verifyToken, moveFolder);
+// ✅ Rutas que requieren autenticación
+router.post("/projects", verifyToken, createProject);         // Crear estructura de proyecto
+router.post("/", verifyToken, createFolder);                  // Crear carpeta
+router.get("/", verifyToken, listFolders);                    // Listar carpetas propias y compartidas
+router.post("/share", verifyToken, shareFolder);              // Compartir con usuario
+router.post("/share/group", verifyToken, shareFolderWithGroup); // Compartir con grupo
+router.delete("/:id", verifyToken, deleteFolder);             // Eliminar carpeta
+router.get("/:folder_id/contents", verifyToken, getFolderContents); // Obtener contenidos
+router.put("/move", verifyToken, moveFolder);                 // Mover carpeta
 
-// 📌 Rutas públicas (sin autenticación)
-
-router.get("/projects", listProjectFolders); // ✅ Se mantiene pública pero ahora está después
+// 🌐 Ruta pública (no requiere autenticación)
+router.get("/projects", listProjectFolders); // Ver carpetas públicas del área "proyectos"
 
 module.exports = router;

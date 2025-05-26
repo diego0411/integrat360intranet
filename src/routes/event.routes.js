@@ -1,35 +1,34 @@
 const express = require("express");
 const { verifyToken } = require("../middleware/auth.middleware");
-const { 
-    createEvent, 
-    getPublicEvents, 
-    getUserEvents, 
-    deleteEvent 
+const {
+    createEvent,
+    getPublicEvents,
+    getUserEvents,
+    deleteEvent
 } = require("../controllers/event.controller");
 
 const router = express.Router();
 
-// 📌 Middleware de manejo de errores centralizado
+// 📌 Middleware para manejo centralizado de errores async
 const asyncHandler = (fn) => (req, res, next) => {
-    Promise.resolve(fn(req, res)).catch(next);
+    Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-// 📌 Crear un evento (Autenticación requerida)
+// 📌 Crear un evento (requiere autenticación)
 router.post("/", verifyToken, asyncHandler(createEvent));
 
-// 📌 Obtener eventos públicos (Acceso sin autenticación)
+// 📌 Obtener eventos públicos (sin autenticación)
 router.get("/public", asyncHandler(getPublicEvents));
 
 // 📌 Obtener eventos del usuario autenticado
 router.get("/user", verifyToken, asyncHandler(getUserEvents));
 
-// 📌 Eliminar un evento (Solo el creador puede hacerlo)
+// 📌 Eliminar un evento (requiere autenticación)
 router.delete("/:id", verifyToken, asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    // Validar que el ID sea un número válido
     if (!id || isNaN(id)) {
-        return res.status(400).json({ error: "ID inválido" });
+        return res.status(400).json({ error: "⚠️ ID de evento inválido." });
     }
 
     await deleteEvent(req, res);

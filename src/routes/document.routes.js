@@ -16,17 +16,16 @@ const { verifyToken } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
-// 📌 Configurar `multer` para almacenar archivos en memoria (requerido para Supabase Storage)
+// 📌 Configurar `multer` para almacenar archivos en memoria (requerido para Supabase)
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 }, // Límite de 10MB por archivo
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-// 📤 Subir archivo a Supabase Storage
+// 📤 Subir documento a Supabase Storage
 router.post("/", verifyToken, upload.single("file"), async (req, res) => {
     try {
         const file = req.file;
-
         if (!file) {
             return res.status(400).json({ error: "⚠️ No se ha subido ningún archivo." });
         }
@@ -35,9 +34,10 @@ router.post("/", verifyToken, upload.single("file"), async (req, res) => {
         const fileName = `documents/${uuidv4()}${ext}`;
 
         const { error: uploadError } = await supabase.storage
-            .from("documents") // nombre del bucket
+            .from("documents")
             .upload(fileName, file.buffer, {
                 contentType: file.mimetype,
+                upsert: false,
             });
 
         if (uploadError) {
@@ -45,11 +45,15 @@ router.post("/", verifyToken, upload.single("file"), async (req, res) => {
             return res.status(500).json({ error: "❌ No se pudo subir el archivo." });
         }
 
-        const { data: publicData } = supabase.storage
+        const { data: publicData, error: urlError } = supabase.storage
             .from("documents")
             .getPublicUrl(fileName);
 
-        // ✅ Llamar al controlador para guardar en la base de datos
+        if (urlError || !publicData?.publicUrl) {
+            console.error("❌ Error al obtener la URL pública:", urlError?.message);
+            return res.status(500).json({ error: "❌ No se pudo obtener la URL del archivo." });
+        }
+
         req.uploadedFile = {
             fileName,
             originalName: file.originalname,
@@ -57,9 +61,10 @@ router.post("/", verifyToken, upload.single("file"), async (req, res) => {
             mimetype: file.mimetype,
         };
 
+        // 🔁 Llamar al controlador para registrar en BD
         uploadDocument(req, res);
     } catch (error) {
-        console.error("❌ Error general al subir archivo:", error.message);
+        console.error("❌ Error general al subir documento:", error.message);
         res.status(500).json({ error: "❌ Error interno del servidor." });
     }
 });
