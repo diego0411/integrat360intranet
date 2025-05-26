@@ -18,8 +18,5 @@ router.post("/register", registerUser);
 router.put("/:id", verifyToken, verifyAdmin, updateUser);
 router.delete("/:id", verifyToken, verifyAdmin, deleteUser);
 
-// 📌 Cumpleaños
-router.get("/birthdays/today", verifyToken, getBirthdayUsers);
-router.get("/birthdays/upcoming", verifyToken, getUpcomingBirthdays);
 
 module.exports = router;
