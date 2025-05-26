@@ -5,7 +5,7 @@ const createFolder = async (req, res) => {
     const { name, parent_id, area } = req.body;
     const owner_id = req.user.id;
 
-    if (!name || name.trim() === "") {
+    if (!name?.trim()) {
         return res.status(400).json({ error: "⚠️ El nombre de la carpeta es obligatorio" });
     }
 
@@ -39,25 +39,30 @@ const createFolder = async (req, res) => {
 
 // 📌 Listar carpetas propias y compartidas del usuario
 const listFolders = async (req, res) => {
-    const owner_id = req.user.id;
+    const user_id = req.user.id;
 
     try {
         const { data: ownFolders, error: ownError } = await supabase
             .from("folders")
-            .select("id, name, area")
-            .eq("owner_id", owner_id)
-            .is("parent_id", null);
+            .select("id, name, area, parent_id")
+            .eq("owner_id", user_id);
 
-        const { data: sharedFolders, error: sharedError } = await supabase
+        const { data: sharedUserFolders, error: sharedError1 } = await supabase
             .from("folder_shares")
-            .select("folders(id, name, area)")
-            .eq("user_id", owner_id);
+            .select("folders(id, name, area, parent_id)")
+            .eq("user_id", user_id);
 
-        if (ownError || sharedError) throw ownError || sharedError;
+        const { data: sharedGroupFolders, error: sharedError2 } = await supabase
+            .from("folder_shares")
+            .select("folders(id, name, area, parent_id)")
+            .in("group_id", req.user.groups || []);
+
+        if (ownError || sharedError1 || sharedError2) throw ownError || sharedError1 || sharedError2;
 
         res.json({
             ownFolders: ownFolders || [],
-            sharedFolders: (sharedFolders || []).map(s => s.folders),
+            sharedFolders: (sharedUserFolders || []).map(s => s.folders),
+            sharedGroupFolders: (sharedGroupFolders || []).map(s => s.folders),
         });
     } catch (error) {
         console.error("❌ Error al obtener carpetas:", error.message);
