@@ -19,7 +19,7 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
 // 🌐 Orígenes permitidos (frontend)
 const allowedOrigins = [
   "https://tu-frontend-en-vercel.vercel.app",
-  "https://integrat360-frontend.vercel.app/",
+  "https://integrat360-frontend.vercel.app",
   "https://main.dnwvajgvo8wr6.amplifyapp.com",
   "http://localhost:3000",
 ];
