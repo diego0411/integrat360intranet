@@ -18,19 +18,24 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
 
 // 🌐 Orígenes permitidos (frontend)
 const allowedOrigins = [
-  "https://tu-frontend-en-vercel.vercel.app",
   "https://integrat360-frontend.vercel.app",
+  "https://tu-frontend-en-vercel.vercel.app",
   "https://main.dnwvajgvo8wr6.amplifyapp.com",
   "http://localhost:3000",
 ];
 
-// ✅ CORS bien configurado
+// ✅ Configuración robusta de CORS
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+  origin: function (origin, callback) {
+    if (!origin) {
+      return callback(null, true); // Permitir postman/curl
+    }
+
+    const cleanOrigin = origin.replace(/\/$/, ""); // 🔧 Eliminar barra final
+    if (allowedOrigins.includes(cleanOrigin)) {
       callback(null, true);
     } else {
-      console.warn(`⚠️ CORS bloqueado para el origen: ${origin}`);
+      console.warn(`⛔ CORS bloqueado para el origen: ${origin}`);
       callback(new Error("⛔ CORS bloqueado para este origen"));
     }
   },
@@ -39,8 +44,20 @@ const corsOptions = {
   credentials: true,
 };
 
+// ✅ Aplicar CORS antes de cualquier ruta
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // Preflight automático
+
+// 🛡️ Middleware global opcional (extra control CORS en respuestas)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
 
 // 🔌 Crear servidor HTTP
 const PORT = process.env.PORT || 5001;
