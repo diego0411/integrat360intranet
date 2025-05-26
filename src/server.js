@@ -1,8 +1,8 @@
 const app = require("./app");
 const dotenv = require("dotenv");
 const http = require("http");
-const { setupSocket } = require("./sockets/chat.socket");
-const { setupSockets } = require("./sockets/socket.js");
+const { setupSocket } = require("./sockets/chat.socket");  // 🔵 Chat
+const { setupSockets } = require("./sockets/socket.js");   // 🔔 Notificaciones
 const path = require("path");
 const express = require("express");
 const fs = require("fs");
@@ -10,51 +10,42 @@ const cors = require("cors");
 
 dotenv.config();
 
-// ✅ Verificación de Supabase
+// ✅ Verificación de variables Supabase
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
   console.error("❌ Faltan variables de entorno SUPABASE_URL o SUPABASE_KEY");
   process.exit(1);
 }
 
-// 🌐 CORS: dominios permitidos
+// 🌐 Orígenes permitidos (frontend)
 const allowedOrigins = [
   "https://tu-frontend-en-vercel.vercel.app",
   "https://main.dnwvajgvo8wr6.amplifyapp.com",
   "http://localhost:3000",
 ];
 
+// ✅ CORS bien configurado
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`⚠️ CORS bloqueado para el origen: ${origin}`);
       callback(new Error("⛔ CORS bloqueado para este origen"));
     }
   },
-  methods: "GET, POST, PUT, DELETE, OPTIONS",
-  allowedHeaders: ["Content-Type", "Authorization"], // ✅ Faltaban comillas en Authorization
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options("*", cors(corsOptions)); // Preflight automático
 
-// Middleware adicional para asegurar headers CORS en respuestas
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
-
-// 🔌 Inicializar servidor HTTP
+// 🔌 Crear servidor HTTP
 const PORT = process.env.PORT || 5001;
 const server = http.createServer(app);
 
-// 💬 WebSocket (chat + notificaciones)
+// 💬 WebSockets (chat + notificaciones)
 try {
   setupSocket(server);
   setupSockets(server);
