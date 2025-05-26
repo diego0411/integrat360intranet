@@ -1,122 +1,94 @@
-require("dotenv").config();
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
-const multer = require("multer");
-const db = require("../config/db");
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
+const supabase = require("../config/supabase");
 
-// 📌 Verificación de configuración de AWS antes de inicializar
-const requiredEnvVars = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_S3_BUCKET"];
-requiredEnvVars.forEach((varName) => {
-    if (!process.env[varName]) {
-        console.error(`❌ ERROR: Falta la variable de entorno ${varName}`);
-        process.exit(1);
-    }
-});
-
-// 📌 Configurar cliente AWS S3
-const s3 = new S3Client({
-    region: process.env.AWS_REGION,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
-});
-
-// 📌 Configurar `multer` para manejar archivos antes de subirlos a S3
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024 }, // 📌 Limitar tamaño a 20MB
-});
-
-// 📤 **Subir un documento a S3**
+// 📤 Subir documento a Supabase Storage y guardar en la BD
 const uploadDocument = async (req, res) => {
     try {
-        console.log("📥 Iniciando carga de documento...");
-        console.log("📂 Datos recibidos:", req.body);
-        console.log("📎 Archivo recibido:", req.file ? req.file.originalname : "❌ Ningún archivo recibido");
-
-        if (!req.file) {
-            console.error("❌ No se recibió ningún archivo.");
-            return res.status(400).json({ error: "⚠️ No se ha subido ningún archivo." });
-        }
-
+        const file = req.file;
         const folder_id = req.body.folder_id ? Number(req.body.folder_id) : null;
         const owner_id = req.user?.id || null;
 
+        if (!file) {
+            return res.status(400).json({ error: "⚠️ No se ha subido ningún archivo." });
+        }
+
         if (!folder_id) {
-            console.error("❌ No se especificó la carpeta destino.");
             return res.status(400).json({ error: "⚠️ Debes seleccionar una carpeta válida." });
         }
 
-        // 📌 Nombre único para el archivo en S3 (sin espacios)
-        const sanitizedFilename = req.file.originalname.replace(/\s+/g, "_");
-        const storedName = `documents/${Date.now()}_${sanitizedFilename}`;
+        const ext = path.extname(file.originalname);
+        const fileName = `documents/${uuidv4()}${ext}`;
 
-        // 📌 Configurar parámetros de subida a S3
-        const uploadParams = {
-            Bucket: process.env.AWS_S3_BUCKET,
-            Key: storedName,
-            Body: req.file.buffer,
-            ContentType: req.file.mimetype
-        };
-
-        try {
-            await s3.send(new PutObjectCommand(uploadParams));
-        } catch (s3Error) {
-            console.error("❌ Error al subir archivo a S3:", s3Error);
-            return res.status(500).json({ error: "❌ No se pudo subir el archivo a S3." });
-        }
-
-        // 📌 URL del archivo en S3 (requiere que el bucket tenga acceso público)
-        const fileUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${storedName}`;
-
-        // 📌 Guardar en la base de datos
-        try {
-            const [result] = await db.execute(
-                "INSERT INTO documents (name, folder_id, owner_id, url, original_name) VALUES (?, ?, ?, ?, ?)",
-                [storedName, folder_id, owner_id, fileUrl, req.file.originalname]
-            );
-
-            console.log("✅ Documento guardado con ID:", result.insertId);
-            res.status(201).json({
-                message: "✅ Documento subido exitosamente",
-                documentId: result.insertId,
-                url: fileUrl
+        // ✅ Subir archivo a Supabase Storage
+        const { error: uploadError } = await supabase.storage
+            .from("documents")
+            .upload(fileName, file.buffer, {
+                contentType: file.mimetype,
             });
 
-        } catch (dbError) {
-            console.error("❌ Error al guardar en la base de datos:", dbError);
-            return res.status(500).json({ error: "❌ Error interno al guardar el documento." });
+        if (uploadError) {
+            console.error("❌ Error al subir archivo:", uploadError.message);
+            return res.status(500).json({ error: "❌ No se pudo subir el archivo." });
         }
 
+        const { data: urlData } = supabase
+            .storage
+            .from("documents")
+            .getPublicUrl(fileName);
+
+        const publicUrl = urlData.publicUrl;
+
+        // ✅ Guardar metadata en base de datos
+        const { error: dbError, data } = await supabase
+            .from("documents")
+            .insert([{
+                name: fileName,
+                folder_id,
+                owner_id,
+                url: publicUrl,
+                original_name: file.originalname
+            }]);
+
+        if (dbError) {
+            console.error("❌ Error al guardar en la base de datos:", dbError.message);
+            return res.status(500).json({ error: "❌ No se pudo guardar el documento." });
+        }
+
+        res.status(201).json({
+            message: "✅ Documento subido exitosamente",
+            url: publicUrl,
+        });
+
     } catch (error) {
-        console.error("❌ Error general en la subida de documento:", error);
+        console.error("❌ Error general:", error.message);
         res.status(500).json({ error: "❌ Error interno en la subida del documento." });
     }
 };
 
-// 📥 **Obtener la URL de descarga de un documento**
+// 📥 Descargar documento (retorna URL)
 const downloadDocument = async (req, res) => {
     try {
         const { document_id } = req.params;
 
-        const [documents] = await db.execute(
-            "SELECT name, original_name, url FROM documents WHERE id = ?",
-            [document_id]
-        );
+        const { data, error } = await supabase
+            .from("documents")
+            .select("url")
+            .eq("id", document_id)
+            .single();
 
-        if (documents.length === 0) {
+        if (error || !data) {
             return res.status(404).json({ error: "⚠️ Documento no encontrado." });
         }
 
-        res.json({ downloadUrl: documents[0].url });
-
+        res.json({ downloadUrl: data.url });
     } catch (error) {
-        console.error("❌ Error en la descarga:", error);
+        console.error("❌ Error al descargar:", error.message);
         res.status(500).json({ error: "❌ Error interno en la descarga." });
     }
 };
 
-// 📌 **Compartir un documento con usuario o grupo**
+// 🔗 Compartir documento
 const shareDocument = async (req, res) => {
     try {
         const { document_id, user_id, group_id } = req.body;
@@ -126,73 +98,90 @@ const shareDocument = async (req, res) => {
             return res.status(400).json({ error: "⚠️ Se debe especificar un usuario o grupo." });
         }
 
+        const inserts = [];
+
         if (user_id) {
-            await db.execute(
-                "INSERT INTO shared_documents (document_id, shared_with_user, owner_id) VALUES (?, ?, ?)",
-                [document_id, user_id, owner_id]
-            );
+            inserts.push({
+                document_id,
+                shared_with_user: user_id,
+                owner_id,
+            });
         }
 
         if (group_id) {
-            await db.execute(
-                "INSERT INTO shared_documents (document_id, shared_with_group, owner_id) VALUES (?, ?, ?)",
-                [document_id, group_id, owner_id]
-            );
+            inserts.push({
+                document_id,
+                shared_with_group: group_id,
+                owner_id,
+            });
+        }
+
+        const { error } = await supabase
+            .from("shared_documents")
+            .insert(inserts);
+
+        if (error) {
+            console.error("❌ Error al compartir:", error.message);
+            return res.status(500).json({ error: "❌ Error al compartir el documento." });
         }
 
         res.json({ message: "✅ Documento compartido correctamente." });
-
     } catch (error) {
-        console.error("❌ Error al compartir documento:", error);
+        console.error("❌ Error general al compartir:", error.message);
         res.status(500).json({ error: "❌ Error interno al compartir el documento." });
     }
 };
 
-// 📌 **Eliminar un documento (también de S3)**
+// 🗑️ Eliminar documento
 const deleteDocument = async (req, res) => {
     try {
         const { document_id } = req.params;
 
-        const [documents] = await db.execute(
-            "SELECT name, url FROM documents WHERE id = ?",
-            [document_id]
-        );
+        // Obtener el documento
+        const { data: doc, error } = await supabase
+            .from("documents")
+            .select("name")
+            .eq("id", document_id)
+            .single();
 
-        if (documents.length === 0) {
+        if (error || !doc) {
             return res.status(404).json({ error: "⚠️ Documento no encontrado." });
         }
 
-        const document = documents[0];
+        // Eliminar de Supabase Storage
+        const { error: storageError } = await supabase
+            .storage
+            .from("documents")
+            .remove([doc.name]);
 
-        // 📌 Parámetros para eliminar de S3
-        const deleteParams = {
-            Bucket: process.env.AWS_S3_BUCKET,
-            Key: document.name,
-        };
-
-        try {
-            await s3.send(new DeleteObjectCommand(deleteParams));
-        } catch (s3Error) {
-            console.error("❌ Error al eliminar archivo de S3:", s3Error);
-            return res.status(500).json({ error: "❌ No se pudo eliminar el archivo de S3." });
+        if (storageError) {
+            console.error("❌ Error al eliminar archivo:", storageError.message);
+            return res.status(500).json({ error: "❌ No se pudo eliminar el archivo." });
         }
 
-        // 📌 Eliminar referencia en la base de datos
-        await db.execute("DELETE FROM documents WHERE id = ?", [document_id]);
+        // Eliminar de la base de datos
+        const { error: deleteError } = await supabase
+            .from("documents")
+            .delete()
+            .eq("id", document_id);
+
+        if (deleteError) {
+            console.error("❌ Error al eliminar metadata:", deleteError.message);
+            return res.status(500).json({ error: "❌ Error al eliminar de la base de datos." });
+        }
 
         res.json({ message: "✅ Documento eliminado correctamente." });
 
     } catch (error) {
-        console.error("❌ Error al eliminar documento:", error);
+        console.error("❌ Error general al eliminar:", error.message);
         res.status(500).json({ error: "❌ Error interno al eliminar el documento." });
     }
 };
 
-// 📌 **Exportar funciones**
+// ✅ Exportar funciones
 module.exports = {
     uploadDocument,
     downloadDocument,
     shareDocument,
     deleteDocument,
-    upload,
 };

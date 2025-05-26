@@ -1,7 +1,8 @@
 const jwt = require("jsonwebtoken");
+const supabase = require("../config/supabase");
 
-// 📌 Middleware para verificar si el usuario está autenticado
-exports.verifyToken = (req, res, next) => {
+// 📌 Verifica si el token JWT es válido
+exports.verifyToken = async (req, res, next) => {
     let token = req.header("Authorization");
 
     if (!token) {
@@ -9,11 +10,11 @@ exports.verifyToken = (req, res, next) => {
     }
 
     try {
-        token = token.replace("Bearer ", "").trim(); // 🔥 Limpia espacios adicionales
-        const verified = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = verified;
+        token = token.replace("Bearer ", "").trim();
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded; // { id, role }
 
-        console.log("✅ Token verificado:", verified);
+        console.log("✅ Token verificado:", decoded);
         next();
     } catch (error) {
         console.error("❌ Error de token:", error.message);
@@ -21,11 +22,33 @@ exports.verifyToken = (req, res, next) => {
     }
 };
 
-// 📌 Middleware para verificar si el usuario es administrador
-exports.verifyAdmin = (req, res, next) => {
-    if (!req.user || req.user.role !== "admin") {
-        return res.status(403).json({ error: "⛔ Acceso denegado, se requiere rol de administrador" });
+// 📌 Verifica si el usuario es administrador (consulta real desde Supabase)
+exports.verifyAdmin = async (req, res, next) => {
+    const userId = req.user?.id;
+
+    if (!userId) {
+        return res.status(401).json({ error: "⛔ Token no contiene ID de usuario" });
     }
-    console.log("✅ Acceso de administrador autorizado");
-    next();
+
+    try {
+        const { data: user, error } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", userId)
+            .single();
+
+        if (error || !user) {
+            return res.status(404).json({ error: "⛔ Usuario no encontrado" });
+        }
+
+        if (user.role !== "admin") {
+            return res.status(403).json({ error: "⛔ Acceso denegado, se requiere rol de administrador" });
+        }
+
+        console.log("✅ Acceso de administrador autorizado");
+        next();
+    } catch (error) {
+        console.error("❌ Error al verificar rol de administrador:", error.message);
+        res.status(500).json({ error: "❌ Error interno del servidor" });
+    }
 };
