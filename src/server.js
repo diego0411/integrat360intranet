@@ -17,45 +17,23 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
   process.exit(1);
 }
 
-// 🌐 Lista de orígenes permitidos
-const allowedOrigins = [
-  "https://integrat360-frontend.vercel.app",
-  "https://integrat360-frontend-diegos-projects-dd0d649f.vercel.app",
-  "https://main.dnwvajgvo8wr6.amplifyapp.com",
-  "http://localhost:3000"
-];
-
-// 🌍 Detectar si estamos en desarrollo
-const isDevelopment = process.env.NODE_ENV !== "production";
-
-// ✅ Configuración CORS
+// 🌐 Permitir cualquier origen (no recomendado en producción sensible)
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (isDevelopment || !origin || allowedOrigins.includes(origin.replace(/\/$/, ""))) {
-      callback(null, true);
-    } else {
-      console.warn(`⛔ CORS bloqueado para el origen: ${origin}`);
-      callback(new Error("⛔ CORS bloqueado para este origen"));
-    }
-  },
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
+  credentials: false, // ❗ Importante: si usas cookies, cambia esto a `true` y configura `origin` correctamente
 };
 
-// 🛡️ Aplicar CORS
+// ✅ Aplicar CORS globalmente
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // Preflight
+app.options("*", cors(corsOptions));
 
-// 🔒 Middleware global opcional: reforzar headers manualmente
+// 🔌 Middleware de seguridad extra (opcional pero redundante aquí)
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (isDevelopment || allowedOrigins.includes(origin?.replace(/\/$/, ""))) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
+  res.header("Access-Control-Allow-Origin", "*"); // Permitir todos los orígenes
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
