@@ -1,8 +1,8 @@
 const app = require("./app");
 const dotenv = require("dotenv");
 const http = require("http");
-const { setupSocket } = require("./sockets/chat.socket");  // 🔵 Chat
-const { setupSockets } = require("./sockets/socket.js");   // 🔔 Notificaciones
+const { setupSocket } = require("./sockets/chat.socket");
+const { setupSockets } = require("./sockets/socket.js");
 const path = require("path");
 const express = require("express");
 const fs = require("fs");
@@ -10,29 +10,24 @@ const cors = require("cors");
 
 dotenv.config();
 
-// ✅ Verificación de variables Supabase
+// ✅ Verificación de variables de entorno
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
   console.error("❌ Faltan variables de entorno SUPABASE_URL o SUPABASE_KEY");
   process.exit(1);
 }
 
-// 🌐 Orígenes permitidos (frontend)
+// 🌐 Orígenes permitidos
 const allowedOrigins = [
   "https://integrat360-frontend.vercel.app",
   "https://tu-frontend-en-vercel.vercel.app",
   "https://main.dnwvajgvo8wr6.amplifyapp.com",
-  "http://localhost:3000",
+  "http://localhost:3000"
 ];
 
-// ✅ Configuración robusta de CORS
+// ✅ Configuración CORS
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) {
-      return callback(null, true); // Permitir postman/curl
-    }
-
-    const cleanOrigin = origin.replace(/\/$/, ""); // 🔧 Eliminar barra final
-    if (allowedOrigins.includes(cleanOrigin)) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.warn(`⛔ CORS bloqueado para el origen: ${origin}`);
@@ -44,18 +39,24 @@ const corsOptions = {
   credentials: true,
 };
 
-// ✅ Aplicar CORS antes de cualquier ruta
+// 🛡️ Aplicar CORS antes de las rutas
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // Preflight automático
+app.options("*", cors(corsOptions)); // Preflight para todos los endpoints
 
-// 🛡️ Middleware global opcional (extra control CORS en respuestas)
+// 🧱 Middleware global adicional para reforzar headers en respuestas
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
 
-  if (req.method === "OPTIONS") return res.sendStatus(200);
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
   next();
 });
 
@@ -63,7 +64,7 @@ app.use((req, res, next) => {
 const PORT = process.env.PORT || 5001;
 const server = http.createServer(app);
 
-// 💬 WebSockets (chat + notificaciones)
+// 💬 WebSockets
 try {
   setupSocket(server);
   setupSockets(server);
@@ -72,7 +73,7 @@ try {
   console.error("❌ Error al inicializar los sockets:", error.message);
 }
 
-// 🗂 Servir archivos estáticos si existen
+// 🗂 Archivos estáticos
 const uploadsPath = path.join(__dirname, "../uploads");
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
