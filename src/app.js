@@ -24,6 +24,7 @@ const allowedOrigins = [
   "https://integrat360-frontend.vercel.app",
   "https://tu-frontend-en-vercel.vercel.app",
   "https://main.dnwvajgvo8wr6.amplifyapp.com",
+  "https://intranet360.onrender.com",
   "http://localhost:3000",
 ];
 
