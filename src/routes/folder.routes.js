@@ -8,6 +8,7 @@ const {
     deleteFolder,
     getFolderContents,
     moveFolder,
+    listFoldersTree,
     createProject
 } = require("../controllers/folder.controller");
 const { listFoldersWithDocuments } = require("../controllers/folder.controller");
@@ -27,7 +28,8 @@ router.delete("/:id", verifyToken, deleteFolder);
 router.get("/:folder_id/contents", verifyToken, getFolderContents);
 router.put("/move", verifyToken, moveFolder); 
 router.get("/with-documents", verifyToken, listFoldersWithDocuments); // ✅ corregido
-
+// Ruta nueva para estructura en árbol
+router.get("/tree", verifyToken, listFoldersTree);
 // 🌐 Ruta pública
 router.get("/projects", listProjectFolders);
 

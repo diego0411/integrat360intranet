@@ -362,6 +362,45 @@ const listFoldersWithDocuments = async (req, res) => {
     }
 };
 
+const listFoldersTree = async (req, res) => {
+    const user_id = req.user.id;
+
+    try {
+        const { data, error } = await supabase
+            .from("folders")
+            .select("id, name, parent_id")
+            .or(`owner_id.eq.${user_id},folder_shares.user_id.eq.${user_id}`)
+            .order("name", { ascending: true });
+
+        if (error) throw error;
+
+        const folders = Array.isArray(data) ? data : [];
+
+        // Convertir plano → jerárquico
+        const folderMap = {};
+        const rootFolders = [];
+
+        for (const folder of folders) {
+            folder.children = [];
+            folderMap[folder.id] = folder;
+        }
+
+        for (const folder of folders) {
+            if (folder.parent_id && folderMap[folder.parent_id]) {
+                folderMap[folder.parent_id].children.push(folder);
+            } else {
+                rootFolders.push(folder);
+            }
+        }
+
+        res.json(rootFolders);
+    } catch (error) {
+        console.error("❌ Error al construir estructura jerárquica:", error.message);
+        res.status(500).json({ error: "Error interno al obtener estructura de carpetas." });
+    }
+};
+
+
 module.exports = {
     createFolder,
     listFolders,
@@ -372,5 +411,6 @@ module.exports = {
     getFolderContents,
     moveFolder,
     listFoldersWithDocuments,
+    listFoldersTree,
     createProject
 };
