@@ -291,6 +291,76 @@ const createProject = async (req, res) => {
         res.status(500).json({ error: "❌ Error interno del servidor." });
     }
 };
+// 📌 Listar carpetas con documentos incluidos
+const listFoldersWithDocuments = async (req, res) => {
+    const user_id = req.user.id;
+
+    try {
+        // Obtener carpetas del usuario
+        const { data: ownFolders, error: ownError } = await supabase
+            .from("folders")
+            .select("id, name, area, parent_id")
+            .eq("owner_id", user_id);
+
+        // Compartidas directas
+        const { data: sharedUserFolders, error: sharedError1 } = await supabase
+            .from("folder_shares")
+            .select("folders(id, name, area, parent_id)")
+            .eq("user_id", user_id);
+
+        // Compartidas por grupo
+        const { data: sharedGroupFolders, error: sharedError2 } = await supabase
+            .from("folder_shares")
+            .select("folders(id, name, area, parent_id)")
+            .in("group_id", req.user.groups || []);
+
+        if (ownError || sharedError1 || sharedError2) throw ownError || sharedError1 || sharedError2;
+
+        const allFolders = [
+            ...(ownFolders || []),
+            ...(sharedUserFolders || []).map(s => s.folders),
+            ...(sharedGroupFolders || []).map(s => s.folders),
+        ];
+
+        // Obtener documentos por carpeta
+        const folderIds = allFolders.map(f => f.id);
+        const { data: allDocuments, error: docsError } = await supabase
+            .from("documents")
+            .select("id, name, url, folder_id")
+            .in("folder_id", folderIds);
+
+        if (docsError) throw docsError;
+
+        // Agrupar documentos por carpeta
+        const documentsByFolder = {};
+        for (const doc of allDocuments || []) {
+            if (!documentsByFolder[doc.folder_id]) {
+                documentsByFolder[doc.folder_id] = [];
+            }
+            documentsByFolder[doc.folder_id].push({
+                id: doc.id,
+                name: doc.name,
+                url: doc.url
+            });
+        }
+
+        // Añadir los documentos a cada carpeta
+        const enrich = folders =>
+            folders.map(f => ({
+                ...f,
+                documents: documentsByFolder[f.id] || []
+            }));
+
+        res.json({
+            ownFolders: enrich(ownFolders || []),
+            sharedFolders: enrich((sharedUserFolders || []).map(s => s.folders)),
+            sharedGroupFolders: enrich((sharedGroupFolders || []).map(s => s.folders))
+        });
+    } catch (error) {
+        console.error("❌ Error al listar carpetas con documentos:", error.message);
+        res.status(500).json({ error: "Error interno al obtener carpetas con documentos" });
+    }
+};
 
 module.exports = {
     createFolder,
@@ -301,5 +371,6 @@ module.exports = {
     deleteFolder,
     getFolderContents,
     moveFolder,
+    listFoldersWithDocuments,
     createProject
 };

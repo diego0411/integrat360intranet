@@ -1,21 +1,24 @@
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const supabase = require("../config/supabase");
+const Document = require("../models/document.model");
 
 // 📤 Subir documento a Supabase Storage y guardar metadata
 const uploadDocument = async (req, res) => {
     try {
         const file = req.file;
-        const folder_id = parseInt(req.body.folder_id, 10);
+        const folder_id = req.body.folder_id;
         const owner_id = req.user?.id || null;
 
         if (!file) return res.status(400).json({ error: "⚠️ Archivo no recibido." });
-        if (!folder_id) return res.status(400).json({ error: "⚠️ Carpeta no especificada." });
+
+        if (!folder_id || !folder_id.match(/^[0-9a-fA-F\-]{36}$/)) {
+            return res.status(400).json({ error: "⛔ folder_id inválido o ausente." });
+        }
 
         const ext = path.extname(file.originalname);
         const fileName = `documents/${uuidv4()}${ext}`;
 
-        // Subida al Storage
         const { error: uploadError } = await supabase.storage
             .from("documents")
             .upload(fileName, file.buffer, {
@@ -27,8 +30,7 @@ const uploadDocument = async (req, res) => {
             return res.status(500).json({ error: "❌ Falló la subida al almacenamiento." });
         }
 
-        const { data: urlData } = supabase
-            .storage
+        const { data: urlData } = supabase.storage
             .from("documents")
             .getPublicUrl(fileName);
 
@@ -37,51 +39,35 @@ const uploadDocument = async (req, res) => {
             return res.status(500).json({ error: "❌ No se pudo obtener URL pública." });
         }
 
-        // Registro en la base de datos
-        const { data, error: dbError } = await supabase
-            .from("documents")
-            .insert([{
-                name: fileName,
-                folder_id,
-                owner_id,
-                url: publicUrl,
-                original_name: file.originalname
-            }])
-            .select()
-            .single();
-
-        if (dbError) {
-            console.error("❌ Error al guardar metadata:", dbError.message);
-            return res.status(500).json({ error: "❌ Error guardando el documento en la base de datos." });
-        }
+        const document = await Document.create({
+            name: fileName,
+            original_name: file.originalname,
+            url: publicUrl,
+            folder_id,
+            owner_id
+        });
 
         res.status(201).json({
             message: "✅ Documento subido con éxito.",
-            document: data
+            document
         });
-
     } catch (error) {
         console.error("❌ Error general en uploadDocument:", error.message);
         res.status(500).json({ error: "❌ Error interno del servidor." });
     }
 };
 
-// 📥 Obtener URL pública para descargar documento
+// 📥 Obtener URL pública de un documento por ID
 const downloadDocument = async (req, res) => {
     try {
         const { document_id } = req.params;
 
-        const { data, error } = await supabase
-            .from("documents")
-            .select("url")
-            .eq("id", document_id)
-            .single();
-
-        if (error || !data) {
-            return res.status(404).json({ error: "⚠️ Documento no encontrado." });
+        const doc = await Document.getById(document_id);
+        if (!doc || !doc.url) {
+            return res.status(404).json({ error: "⚠️ Documento no encontrado o sin URL válida." });
         }
 
-        res.json({ downloadUrl: data.url });
+        res.json({ downloadUrl: doc.url });
     } catch (error) {
         console.error("❌ Error en downloadDocument:", error.message);
         res.status(500).json({ error: "❌ Error interno del servidor." });
@@ -99,21 +85,11 @@ const shareDocument = async (req, res) => {
         }
 
         const inserts = [];
-
         if (user_id) {
-            inserts.push({
-                document_id,
-                shared_with_user: user_id,
-                owner_id,
-            });
+            inserts.push({ document_id, shared_with_user: user_id, owner_id });
         }
-
         if (group_id) {
-            inserts.push({
-                document_id,
-                shared_with_group: group_id,
-                owner_id,
-            });
+            inserts.push({ document_id, shared_with_group: group_id, owner_id });
         }
 
         const { error } = await supabase
@@ -132,25 +108,17 @@ const shareDocument = async (req, res) => {
     }
 };
 
-// 🗑️ Eliminar documento y archivo de Supabase Storage
+// 🗑️ Eliminar documento y su archivo del Storage
 const deleteDocument = async (req, res) => {
     try {
         const { document_id } = req.params;
 
-        // Obtener nombre del archivo
-        const { data: doc, error } = await supabase
-            .from("documents")
-            .select("name")
-            .eq("id", document_id)
-            .single();
-
-        if (error || !doc) {
-            return res.status(404).json({ error: "⚠️ Documento no encontrado." });
+        const doc = await Document.getById(document_id);
+        if (!doc || !doc.name) {
+            return res.status(404).json({ error: "⚠️ Documento no encontrado o sin nombre de archivo." });
         }
 
-        // Eliminar de Supabase Storage
-        const { error: storageError } = await supabase
-            .storage
+        const { error: storageError } = await supabase.storage
             .from("documents")
             .remove([doc.name]);
 
@@ -159,22 +127,33 @@ const deleteDocument = async (req, res) => {
             return res.status(500).json({ error: "❌ Falló la eliminación en el almacenamiento." });
         }
 
-        // Eliminar metadata
-        const { error: dbError } = await supabase
-            .from("documents")
-            .delete()
-            .eq("id", document_id);
-
-        if (dbError) {
-            console.error("❌ Error al eliminar metadata:", dbError.message);
-            return res.status(500).json({ error: "❌ Falló la eliminación en la base de datos." });
-        }
+        await Document.deleteById(document_id);
 
         res.json({ message: "✅ Documento eliminado correctamente." });
-
     } catch (error) {
         console.error("❌ Error en deleteDocument:", error.message);
         res.status(500).json({ error: "❌ Error interno del servidor." });
+    }
+};
+
+// 📄 Listar o buscar documentos por carpeta
+const listDocumentsByFolder = async (req, res) => {
+    const { folder_id } = req.params;
+    const { search } = req.query;
+
+    if (!folder_id || !folder_id.match(/^[0-9a-fA-F\-]{36}$/)) {
+        return res.status(400).json({ error: "⛔ folder_id inválido o ausente." });
+    }
+
+    try {
+        const docs = search && search.trim().length > 0
+            ? await Document.searchInFolder(folder_id, search.trim())
+            : await Document.getByFolder(folder_id);
+
+        res.json(docs);
+    } catch (error) {
+        console.error("❌ Error al listar documentos:", error.message);
+        res.status(500).json({ error: "❌ Error interno al listar documentos." });
     }
 };
 
@@ -183,4 +162,5 @@ module.exports = {
     downloadDocument,
     shareDocument,
     deleteDocument,
+    listDocumentsByFolder,
 };
