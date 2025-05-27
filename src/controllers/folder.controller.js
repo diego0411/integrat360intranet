@@ -171,7 +171,7 @@ const getFolderContents = async (req, res) => {
 
         const { data: documents } = await supabase
             .from("documents")
-            .select("id, name, url")
+            .select("id, name, url, original_name")
             .eq("folder_id", folderId);
 
         res.json({ subfolders, documents });
