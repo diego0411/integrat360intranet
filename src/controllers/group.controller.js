@@ -8,12 +8,40 @@ exports.getGroups = async (req, res) => {
     }
 
     try {
-        // Consulta grupos donde el usuario es creador o miembro
-        const { data, error } = await supabase
-            .rpc("get_user_groups", { user_id_param: userId }); // ✅ Idealmente usar función SQL en Supabase
+        // Grupos creados por el usuario
+        const { data: ownGroups, error: ownError } = await supabase
+            .from("chat_groups")
+            .select("*")
+            .eq("created_by", userId);
 
-        if (error) throw error;
-        res.json(data);
+        if (ownError) throw ownError;
+
+        // Grupos donde el usuario es miembro
+        const { data: membershipRefs, error: memberError } = await supabase
+            .from("group_members")
+            .select("group_id")
+            .eq("user_id", userId);
+
+        if (memberError) throw memberError;
+
+        let memberGroups = [];
+        const memberIds = membershipRefs.map(m => m.group_id);
+
+        if (memberIds.length > 0) {
+            const { data: memberGroupData, error: fetchError } = await supabase
+                .from("chat_groups")
+                .select("*")
+                .in("id", memberIds);
+
+            if (fetchError) throw fetchError;
+            memberGroups = memberGroupData;
+        }
+
+        // Unir y evitar duplicados
+        const allGroups = [...ownGroups, ...memberGroups];
+        const uniqueGroups = Array.from(new Map(allGroups.map(g => [g.id, g])).values());
+
+        res.json(uniqueGroups);
     } catch (error) {
         console.error("❌ Error al obtener grupos:", error.message);
         res.status(500).json({ error: "Error interno al obtener grupos." });
@@ -50,8 +78,8 @@ exports.createGroup = async (req, res) => {
     const { name } = req.body;
     const created_by = req.user?.id;
 
-    if (!name || !created_by) {
-        return res.status(400).json({ error: "El nombre del grupo es obligatorio." });
+    if (!name?.trim()) {
+        return res.status(400).json({ error: "⚠️ El nombre del grupo es obligatorio." });
     }
 
     try {
@@ -74,14 +102,13 @@ exports.createGroup = async (req, res) => {
 exports.addUserToGroup = async (req, res) => {
     const { groupId } = req.params;
     const { userId } = req.body;
-    const adminId = req.user.id;
+    const adminId = req.user?.id;
 
     if (!userId) {
-        return res.status(400).json({ error: "El ID del usuario es obligatorio." });
+        return res.status(400).json({ error: "⚠️ Debes especificar un usuario." });
     }
 
     try {
-        // Verificar que el grupo exista y pertenezca al solicitante
         const { data: group, error: groupError } = await supabase
             .from("chat_groups")
             .select("created_by")
@@ -89,14 +116,13 @@ exports.addUserToGroup = async (req, res) => {
             .single();
 
         if (groupError || !group) {
-            throw new Error("El grupo no existe o no se pudo verificar.");
+            return res.status(404).json({ error: "⚠️ El grupo no existe." });
         }
 
         if (group.created_by !== adminId) {
-            return res.status(403).json({ error: "No tienes permiso para agregar miembros a este grupo." });
+            return res.status(403).json({ error: "⛔ No tienes permiso para modificar este grupo." });
         }
 
-        // Verificar si ya es miembro
         const { data: exists, error: existsError } = await supabase
             .from("group_members")
             .select("id")
@@ -105,7 +131,7 @@ exports.addUserToGroup = async (req, res) => {
 
         if (existsError) throw existsError;
         if (exists.length > 0) {
-            return res.status(400).json({ error: "El usuario ya pertenece al grupo." });
+            return res.status(400).json({ error: "⚠️ El usuario ya es miembro del grupo." });
         }
 
         const { error: insertError } = await supabase
@@ -114,9 +140,9 @@ exports.addUserToGroup = async (req, res) => {
 
         if (insertError) throw insertError;
 
-        res.status(201).json({ message: "✅ Usuario agregado al grupo correctamente." });
+        res.status(201).json({ message: "✅ Usuario agregado correctamente." });
     } catch (error) {
-        console.error("❌ Error al agregar usuario al grupo:", error.message);
+        console.error("❌ Error al agregar usuario:", error.message);
         res.status(500).json({ error: "Error interno al agregar usuario al grupo." });
     }
 };
@@ -124,7 +150,7 @@ exports.addUserToGroup = async (req, res) => {
 // 📌 Eliminar grupo (solo el creador puede)
 exports.deleteGroup = async (req, res) => {
     const { groupId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
     try {
         const { data: group, error } = await supabase
@@ -134,22 +160,15 @@ exports.deleteGroup = async (req, res) => {
             .single();
 
         if (error || !group) {
-            throw new Error("El grupo no existe o no se pudo verificar.");
+            return res.status(404).json({ error: "⚠️ El grupo no existe." });
         }
 
         if (group.created_by !== userId) {
-            return res.status(403).json({ error: "No tienes permiso para eliminar este grupo." });
+            return res.status(403).json({ error: "⛔ No tienes permiso para eliminar este grupo." });
         }
 
-        // Eliminar miembros
         await supabase.from("group_members").delete().eq("group_id", groupId);
-
-        // Eliminar grupo
-        const { error: deleteError } = await supabase
-            .from("chat_groups")
-            .delete()
-            .eq("id", groupId);
-
+        const { error: deleteError } = await supabase.from("chat_groups").delete().eq("id", groupId);
         if (deleteError) throw deleteError;
 
         res.json({ message: "✅ Grupo eliminado correctamente." });

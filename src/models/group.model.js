@@ -1,7 +1,7 @@
 const supabase = require("../config/supabase");
 
 class Group {
-    // 📌 Obtener todos los grupos (útil para administración)
+    // 📌 Obtener todos los grupos (uso administrativo)
     static async getGroups() {
         const { data, error } = await supabase
             .from("chat_groups")
@@ -12,11 +12,13 @@ class Group {
             throw new Error("No se pudieron obtener los grupos.");
         }
 
-        return data;
+        return data || [];
     }
 
-    // 📌 Obtener un grupo por ID
+    // 📌 Obtener un grupo específico por ID
     static async getGroupById(groupId) {
+        if (!groupId) throw new Error("ID del grupo no proporcionado.");
+
         const { data, error } = await supabase
             .from("chat_groups")
             .select("*")
@@ -31,8 +33,12 @@ class Group {
         return data;
     }
 
-    // 📌 Verificar si un usuario ya pertenece a un grupo
+    // 📌 Verificar si un usuario ya es miembro del grupo
     static async isUserInGroup(groupId, userId) {
+        if (!groupId || !userId) {
+            throw new Error("ID de grupo y usuario requeridos.");
+        }
+
         const { data, error } = await supabase
             .from("group_members")
             .select("id")
@@ -40,7 +46,7 @@ class Group {
             .eq("user_id", userId);
 
         if (error) {
-            console.error("❌ Error al verificar si el usuario pertenece al grupo:", error.message);
+            console.error("❌ Error al verificar membresía:", error.message);
             throw new Error("No se pudo verificar la pertenencia al grupo.");
         }
 
@@ -49,6 +55,10 @@ class Group {
 
     // 📌 Agregar usuario al grupo
     static async addUserToGroup(groupId, userId) {
+        if (!groupId || !userId) {
+            throw new Error("ID de grupo y usuario requeridos.");
+        }
+
         const { error } = await supabase
             .from("group_members")
             .insert([{ group_id: groupId, user_id: userId }]);
@@ -57,13 +67,23 @@ class Group {
             console.error("❌ Error al agregar usuario al grupo:", error.message);
             throw new Error("No se pudo agregar el usuario al grupo.");
         }
+
+        return true;
     }
 
-    // 📌 Obtener miembros del grupo con datos del usuario
+    // 📌 Obtener miembros del grupo (con nombre y correo)
     static async getGroupMembers(groupId) {
+        if (!groupId) throw new Error("ID del grupo no proporcionado.");
+
         const { data, error } = await supabase
             .from("group_members")
-            .select("user_id, users(name, email)")
+            .select(`
+                user_id,
+                users (
+                    name,
+                    email
+                )
+            `)
             .eq("group_id", groupId);
 
         if (error) {
@@ -71,15 +91,19 @@ class Group {
             throw new Error("No se pudieron obtener los miembros del grupo.");
         }
 
-        return data.map(member => ({
+        return (data || []).map(member => ({
             id: member.user_id,
             name: member.users?.name || "Desconocido",
             email: member.users?.email || "Sin email"
         }));
     }
 
-    // 📌 Crear un nuevo grupo
+    // 📌 Crear grupo
     static async createGroup(name, created_by) {
+        if (!name || !created_by) {
+            throw new Error("Nombre del grupo y creador son requeridos.");
+        }
+
         const { data, error } = await supabase
             .from("chat_groups")
             .insert([{ name, created_by }])
@@ -94,18 +118,29 @@ class Group {
         return data;
     }
 
-    // 📌 Eliminar grupo por ID (opcionalmente filtrar por creador)
+    // 📌 Eliminar grupo (y opcionalmente verificar propietario)
     static async deleteGroup(groupId, userId = null) {
-        let query = supabase.from("chat_groups").delete().eq("id", groupId);
+        if (!groupId) {
+            throw new Error("ID del grupo requerido.");
+        }
+
+        let query = supabase
+            .from("chat_groups")
+            .delete()
+            .eq("id", groupId);
+
         if (userId) {
             query = query.eq("created_by", userId);
         }
 
         const { error } = await query;
+
         if (error) {
             console.error("❌ Error al eliminar el grupo:", error.message);
             throw new Error("No se pudo eliminar el grupo.");
         }
+
+        return true;
     }
 }
 
