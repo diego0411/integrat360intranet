@@ -19,31 +19,33 @@ const birthdayRoutes = require("./routes/birthday.routes");
 // ⚙️ Inicialización de la app
 const app = express();
 
-// 🌐 CORS
+// 🌐 Configuración de CORS
 const allowedOrigins = [
+  "https://integrat360-frontend.vercel.app",
   "https://tu-frontend-en-vercel.vercel.app",
   "https://main.dnwvajgvo8wr6.amplifyapp.com",
-  "https://integrat360-frontend.vercel.app",
   "http://localhost:3000",
 ];
 
-const corsOptions = {
+app.use(cors({
   origin: (origin, callback) => {
+    // Permitir llamadas sin origen (ej: Postman)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("⛔ CORS bloqueado para este origen"));
+      callback(new Error("⛔ Acceso bloqueado por CORS: " + origin));
     }
   },
-  methods: "GET, POST, PUT, DELETE, OPTIONS",
-  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-};
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
-app.use(cors(corsOptions));
+// 📦 Middlewares
 app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 🗂 Archivos estáticos
+// 🗂 Archivos estáticos (en caso de que uses uploads locales)
 const uploadsPath = path.join(__dirname, "../uploads");
 
 if (!fs.existsSync(uploadsPath)) {
@@ -53,7 +55,7 @@ if (!fs.existsSync(uploadsPath)) {
 
 app.use("/uploads", express.static(uploadsPath));
 
-// 🔌 Rutas principales
+// 🔌 Rutas
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/folders", folderRoutes);
@@ -65,9 +67,9 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/birthdays", birthdayRoutes);
 
-// ⚠️ Middleware global de errores
+// 🛑 Manejo global de errores
 app.use((err, req, res, next) => {
-  console.error("❌ Error en middleware global:", err.message);
+  console.error("❌ Error global:", err.stack || err.message);
   res.status(err.status || 500).json({
     error: "❌ Error interno del servidor",
     message: err.message || "Algo salió mal",
