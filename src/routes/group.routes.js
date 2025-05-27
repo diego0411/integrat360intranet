@@ -10,19 +10,23 @@ const {
 
 const router = express.Router();
 
-// ✅ Crear un grupo
-router.post("/", verifyToken, createGroup);
+// 📌 Middleware para manejo de errores async de forma segura
+const asyncHandler = (fn) => (req, res, next) =>
+    Promise.resolve(fn(req, res, next)).catch(next);
 
-// ✅ Obtener todos los grupos del usuario
-router.get("/", verifyToken, getGroups);
+// ✅ Crear un nuevo grupo
+router.post("/", verifyToken, asyncHandler(createGroup));
+
+// ✅ Obtener todos los grupos del usuario (creados o donde es miembro)
+router.get("/", verifyToken, asyncHandler(getGroups));
 
 // ✅ Obtener miembros de un grupo
-router.get("/:groupId/members", verifyToken, getGroupMembers);
+router.get("/:groupId/members", verifyToken, asyncHandler(getGroupMembers));
 
-// ✅ Agregar un usuario a un grupo
-router.post("/:groupId/members", verifyToken, addUserToGroup);
+// ✅ Agregar usuario a un grupo (solo el creador puede)
+router.post("/:groupId/members", verifyToken, asyncHandler(addUserToGroup));
 
-// ✅ Eliminar un grupo (solo el creador)
-router.delete("/:groupId", verifyToken, deleteGroup);
+// ✅ Eliminar un grupo (solo el creador puede)
+router.delete("/:groupId", verifyToken, asyncHandler(deleteGroup));
 
 module.exports = router;

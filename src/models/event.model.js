@@ -5,7 +5,9 @@ class Event {
     static async create(title, description, date, created_by, visibility) {
         const { data, error } = await supabase
             .from("events")
-            .insert([{ title, description, date, created_by, visibility }]);
+            .insert([{ title, description, date, created_by, visibility }])
+            .select()
+            .single();
 
         if (error) {
             console.error("❌ Error en la creación del evento:", error.message);
@@ -60,7 +62,7 @@ class Event {
             throw new Error("No se pudo eliminar el evento.");
         }
 
-        return true;
+        return { success: true, message: "Evento eliminado correctamente." };
     }
 }
 

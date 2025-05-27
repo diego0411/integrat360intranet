@@ -9,16 +9,21 @@ const {
 
 const router = express.Router();
 
+// 🛡️ Middleware para manejo de errores async
+const asyncHandler = (fn) => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 // 📤 Enviar mensaje (público, privado o de grupo)
-router.post("/", verifyToken, sendMessage);
+router.post("/", verifyToken, asyncHandler(sendMessage));
 
 // 📥 Obtener mensajes públicos
-router.get("/public", verifyToken, getPublicMessages);
+router.get("/public", verifyToken, asyncHandler(getPublicMessages));
 
-// 📥 Obtener mensajes privados entre usuarios (basado en receiver_id)
-router.get("/private/:receiver_id", verifyToken, getPrivateMessages);
+// 📥 Obtener mensajes privados entre dos usuarios
+router.get("/private/:receiver_id", verifyToken, asyncHandler(getPrivateMessages));
 
-// 📥 Obtener mensajes de grupo
-router.get("/group/:group_id", verifyToken, getGroupMessages);
+// 📥 Obtener mensajes de un grupo
+router.get("/group/:group_id", verifyToken, asyncHandler(getGroupMessages));
 
 module.exports = router;

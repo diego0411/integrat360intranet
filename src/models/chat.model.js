@@ -5,14 +5,14 @@ class Chat {
     static async saveMessage(sender_id, receiver_id, group_id, message) {
         const { data, error } = await supabase
             .from("messages")
-            .insert([
-                {
-                    sender_id,
-                    receiver_id: receiver_id || null,
-                    group_id: group_id || null,
-                    message
-                }
-            ]);
+            .insert([{
+                sender_id,
+                receiver_id: receiver_id || null,
+                group_id: group_id || null,
+                message
+            }])
+            .select()
+            .single();
 
         if (error) {
             console.error("❌ Error al guardar mensaje:", error.message);
@@ -26,7 +26,9 @@ class Chat {
     static async createPublicMessage(sender_id, message) {
         const { data, error } = await supabase
             .from("messages")
-            .insert([{ sender_id, message }]);
+            .insert([{ sender_id, message }])
+            .select()
+            .single();
 
         if (error) {
             console.error("❌ Error al crear mensaje público:", error.message);
@@ -40,7 +42,9 @@ class Chat {
     static async createPrivateMessage(sender_id, receiver_id, message) {
         const { data, error } = await supabase
             .from("messages")
-            .insert([{ sender_id, receiver_id, message }]);
+            .insert([{ sender_id, receiver_id, message }])
+            .select()
+            .single();
 
         if (error) {
             console.error("❌ Error al crear mensaje privado:", error.message);
@@ -65,7 +69,7 @@ class Chat {
             `)
             .is("receiver_id", null)
             .is("group_id", null)
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: true });
 
         if (error) {
             console.error("❌ Error al obtener mensajes públicos:", error.message);
@@ -91,7 +95,7 @@ class Chat {
             .or(
                 `and(sender_id.eq.${sender_id},receiver_id.eq.${receiver_id}),and(sender_id.eq.${receiver_id},receiver_id.eq.${sender_id})`
             )
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: true });
 
         if (error) {
             console.error("❌ Error al obtener mensajes privados:", error.message);
@@ -115,7 +119,7 @@ class Chat {
                 )
             `)
             .eq("group_id", group_id)
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: true });
 
         if (error) {
             console.error("❌ Error al obtener mensajes de grupo:", error.message);

@@ -3,7 +3,9 @@ const supabase = require("../config/supabase");
 class Group {
     // 📌 Obtener todos los grupos
     static async getGroups() {
-        const { data, error } = await supabase.from("chat_groups").select("*");
+        const { data, error } = await supabase
+            .from("chat_groups")
+            .select("*");
 
         if (error) {
             console.error("❌ Error al obtener los grupos:", error.message);
@@ -13,7 +15,7 @@ class Group {
         return data;
     }
 
-    // 📌 Obtener un grupo por ID
+    // 📌 Obtener un grupo por su ID
     static async getGroupById(groupId) {
         const { data, error } = await supabase
             .from("chat_groups")
@@ -21,31 +23,31 @@ class Group {
             .eq("id", groupId)
             .single();
 
-        if (error) {
-            console.error("❌ Error al obtener el grupo:", error.message);
-            throw new Error("No se pudo obtener el grupo.");
+        if (error || !data) {
+            console.error("❌ Error al obtener el grupo:", error?.message);
+            throw new Error("El grupo no existe o no se pudo obtener.");
         }
 
         return data;
     }
 
-    // 📌 Verificar si un usuario ya está en el grupo
+    // 📌 Verificar si un usuario ya pertenece a un grupo
     static async isUserInGroup(groupId, userId) {
         const { data, error } = await supabase
             .from("group_members")
-            .select("*")
+            .select("id")
             .eq("group_id", groupId)
             .eq("user_id", userId);
 
         if (error) {
-            console.error("❌ Error al verificar miembro del grupo:", error.message);
-            throw new Error("No se pudo verificar el usuario en el grupo.");
+            console.error("❌ Error al verificar usuario en grupo:", error.message);
+            throw new Error("No se pudo verificar el miembro del grupo.");
         }
 
         return data.length > 0;
     }
 
-    // 📌 Agregar usuario al grupo
+    // 📌 Agregar usuario a grupo
     static async addUserToGroup(groupId, userId) {
         const { error } = await supabase
             .from("group_members")
@@ -57,11 +59,17 @@ class Group {
         }
     }
 
-    // 📌 Obtener miembros de un grupo
+    // 📌 Obtener miembros de un grupo (incluye info de usuario)
     static async getGroupMembers(groupId) {
         const { data, error } = await supabase
             .from("group_members")
-            .select("user_id, users(name, email)")
+            .select(`
+                user_id,
+                users (
+                    name,
+                    email
+                )
+            `)
             .eq("group_id", groupId);
 
         if (error) {
@@ -69,10 +77,10 @@ class Group {
             throw new Error("No se pudieron obtener los miembros del grupo.");
         }
 
-        return data.map(entry => ({
-            id: entry.user_id,
-            name: entry.users.name,
-            email: entry.users.email,
+        return data.map(member => ({
+            id: member.user_id,
+            name: member.users?.name || "Sin nombre",
+            email: member.users?.email || "Sin email"
         }));
     }
 
@@ -83,7 +91,7 @@ class Group {
             .insert([{ name, created_by }]);
 
         if (error) {
-            console.error("❌ Error al crear el grupo:", error.message);
+            console.error("❌ Error al crear grupo:", error.message);
             throw new Error("No se pudo crear el grupo.");
         }
     }

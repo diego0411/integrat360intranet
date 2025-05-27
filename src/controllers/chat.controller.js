@@ -6,7 +6,7 @@ exports.sendMessage = async (req, res) => {
         const { message, receiver_id, group_id } = req.body;
         const sender_id = req.user.id;
 
-        if (!message) {
+        if (!message || !message.trim()) {
             return res.status(400).json({ error: "❌ El mensaje no puede estar vacío." });
         }
 
@@ -20,7 +20,7 @@ exports.sendMessage = async (req, res) => {
             console.log(`📩 Enviando mensaje privado a ${receiver_id}:`, message);
             await Chat.saveMessage(sender_id, receiver_id, null, message);
         } else if (group_id) {
-            console.log(`📢 Enviando mensaje grupal a ${group_id}:`, message);
+            console.log(`👥 Enviando mensaje grupal a ${group_id}:`, message);
             await Chat.saveMessage(sender_id, null, group_id, message);
         }
 
@@ -31,48 +31,45 @@ exports.sendMessage = async (req, res) => {
     }
 };
 
-
-// 📌 Obtener mensajes públicos
+// 📏 Obtener mensajes públicos
 exports.getPublicMessages = async (req, res) => {
     try {
-        const [messages] = await Chat.getPublicMessages(); // Extrae el array de resultados
-        res.json(messages); // Envía solo los datos sin metadatos de MySQL
+        const messages = await Chat.getPublicMessages();
+        res.json(messages);
     } catch (error) {
         console.error("❌ Error al obtener mensajes públicos:", error);
-        res.status(500).json({ error: "Error interno al obtener mensajes" });
+        res.status(500).json({ error: "Error interno al obtener mensajes." });
     }
 };
 
-// 📌 Obtener mensajes privados entre usuarios
+// 📏 Obtener mensajes privados entre usuarios
 exports.getPrivateMessages = async (req, res) => {
     const { receiver_id } = req.params;
     const sender_id = req.user.id;
 
     try {
-        const [messages] = await Chat.getPrivateMessages(sender_id, receiver_id);
-        res.json(messages); // Asegura que se devuelvan solo los mensajes
+        const messages = await Chat.getPrivateMessages(sender_id, receiver_id);
+        res.json(messages);
     } catch (error) {
         console.error("❌ Error al obtener mensajes privados:", error);
-        res.status(500).json({ error: "Error interno al obtener mensajes" });
+        res.status(500).json({ error: "Error interno al obtener mensajes." });
     }
 };
 
-// 📌 Obtener mensajes de grupo
+// 📏 Obtener mensajes de grupo
 exports.getGroupMessages = async (req, res) => {
     const { group_id } = req.params;
 
-    if (!group_id) {
-        return res.status(400).json({ error: "❌ group_id es requerido." });
+    if (!group_id || !group_id.match(/^[0-9a-fA-F\-]{36}$/)) {
+        return res.status(400).json({ error: "❌ group_id es requerido o inválido." });
     }
 
     try {
-        console.log(`📩 Obteniendo mensajes para el grupo: ${group_id}`);
-        const [messages] = await Chat.getGroupMessages(group_id);
+        console.log(`👥 Obteniendo mensajes para el grupo: ${group_id}`);
+        const messages = await Chat.getGroupMessages(group_id);
         res.json(messages);
     } catch (error) {
         console.error("❌ Error al obtener mensajes de grupo:", error);
         res.status(500).json({ error: "Error interno al obtener mensajes." });
     }
 };
-
-

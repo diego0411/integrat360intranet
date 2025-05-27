@@ -9,13 +9,13 @@ const { verifyToken } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
-// ✅ Obtener notificaciones del usuario autenticado
+// ✅ Obtener todas las notificaciones del usuario autenticado
 router.get("/", verifyToken, getUserNotifications);
 
-// ✅ Marcar una notificación como leída
-router.put("/:id", verifyToken, markNotificationAsRead);
+// ✅ Marcar una notificación como leída por ID
+router.put("/:id/read", verifyToken, markNotificationAsRead);
 
-// ✅ Enviar una notificación pública (requiere autenticación si deseas limitar a admins)
-router.post("/public", verifyToken, sendPublicNotification);
+// ✅ Enviar una notificación pública (puedes restringir a admins desde el middleware si es necesario)
+router.post("/broadcast", verifyToken, sendPublicNotification);
 
 module.exports = router;

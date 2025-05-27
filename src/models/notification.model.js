@@ -2,10 +2,12 @@ const supabase = require("../config/supabase");
 
 class Notification {
     // 📌 Crear una notificación
-    static async createNotification(user_id, message, type = "info") {
+    static async createNotification(user_id, title, message, type = "info") {
         const { data, error } = await supabase
             .from("notifications")
-            .insert([{ user_id, message, type }]);
+            .insert([{ user_id, title, message, type, read: false }])
+            .select()
+            .single();
 
         if (error) {
             console.error("❌ Error al crear notificación:", error.message);
@@ -19,7 +21,7 @@ class Notification {
     static async getUserNotifications(user_id) {
         const { data, error } = await supabase
             .from("notifications")
-            .select("*")
+            .select("id, title, message, type, read, created_at")
             .eq("user_id", user_id)
             .order("created_at", { ascending: false });
 
@@ -29,6 +31,19 @@ class Notification {
         }
 
         return data;
+    }
+
+    // 📌 Marcar notificación como leída
+    static async markAsRead(notification_id) {
+        const { error } = await supabase
+            .from("notifications")
+            .update({ read: true })
+            .eq("id", notification_id);
+
+        if (error) {
+            console.error("❌ Error al marcar como leída:", error.message);
+            throw new Error("No se pudo marcar la notificación como leída.");
+        }
     }
 
     // 📌 Eliminar una notificación
