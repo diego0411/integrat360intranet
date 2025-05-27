@@ -10,22 +10,25 @@ const {
     moveFolder,
     createProject
 } = require("../controllers/folder.controller");
+const { listFoldersWithDocuments } = require("../controllers/folder.controller");
+
 
 const { verifyToken } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
 // ✅ Rutas que requieren autenticación
-router.post("/projects", verifyToken, createProject);         // Crear estructura de proyecto
-router.post("/", verifyToken, createFolder);                  // Crear carpeta
-router.get("/", verifyToken, listFolders);                    // Listar carpetas propias y compartidas
-router.post("/share", verifyToken, shareFolder);              // Compartir con usuario
-router.post("/share/group", verifyToken, shareFolderWithGroup); // Compartir con grupo
-router.delete("/:id", verifyToken, deleteFolder);             // Eliminar carpeta
-router.get("/:folder_id/contents", verifyToken, getFolderContents); // Obtener contenidos
-router.put("/move", verifyToken, moveFolder);                 // Mover carpeta
+router.post("/projects", verifyToken, createProject);         
+router.post("/", verifyToken, createFolder);                  
+router.get("/", verifyToken, listFolders);                    
+router.post("/share", verifyToken, shareFolder);              
+router.post("/share/group", verifyToken, shareFolderWithGroup);
+router.delete("/:id", verifyToken, deleteFolder);             
+router.get("/:folder_id/contents", verifyToken, getFolderContents);
+router.put("/move", verifyToken, moveFolder); 
+router.get("/with-documents", verifyToken, listFoldersWithDocuments); // ✅ corregido
 
-// 🌐 Ruta pública (no requiere autenticación)
-router.get("/projects", listProjectFolders); // Ver carpetas públicas del área "proyectos"
+// 🌐 Ruta pública
+router.get("/projects", listProjectFolders);
 
 module.exports = router;
